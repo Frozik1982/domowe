@@ -1,0 +1,257 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ============================================
+       THEME SYSTEM VARIABLES - DO NOT REMOVE
+       ============================================ */
+
+    /* Core colors — ciepła kremowa biel, nie czyste białe */
+    --background: 38 22% 97%;
+    --foreground: 222 20% 17%;
+    --muted: 36 14% 93%;
+    --muted-foreground: 218 13% 44%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 20% 17%;
+    --border: 36 13% 88%;
+    --input: 36 13% 88%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 20% 17%;
+
+    /* Primary — elegancki głęboki granatowo-fioletowy */
+    --primary: 243 44% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 243 18% 96%;
+    --secondary-foreground: 243 38% 30%;
+    --accent: 243 20% 96%;
+    --accent-foreground: 243 38% 30%;
+    --destructive: 0 68% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 243 44% 40%;
+
+    /* Border radius */
+    --radius: 0.75rem;
+
+    /* Chart colors — stonowane, harmonijne */
+    --chart-1: 210 50% 52%;
+    --chart-2: 255 42% 56%;
+    --chart-3: 148 36% 44%;
+    --chart-4: 20 50% 58%;
+    --chart-5: 350 44% 60%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Font families */
+    --font-sans: 'Inter', 'Helvetica Neue', sans-serif;
+    --font-mono: 'Courier New', monospace;
+
+    /* Shadow */
+    --shadow-x: 0px;
+    --shadow-y: 4px;
+    --shadow-blur: 24px;
+    --shadow-spread: -4px;
+    --shadow-opacity: 0.055;
+    --shadow-color: #2d2550;
+
+    /* Computed shadows */
+    --shadow-2xs: var(--shadow-x) var(--shadow-y) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 100%), transparent);
+    --shadow-xs: var(--shadow-x) var(--shadow-y) var(--shadow-blur) var(--shadow-spread) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 100%), transparent);
+    --shadow-sm: var(--shadow-x) var(--shadow-y) calc(var(--shadow-blur) * 1.5) var(--shadow-spread) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 100%), transparent);
+    --shadow-md: calc(var(--shadow-x) * 2) calc(var(--shadow-y) * 2) calc(var(--shadow-blur) * 3) calc(var(--shadow-spread) - 1px) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 100%), transparent);
+    --shadow-lg: calc(var(--shadow-x) * 4) calc(var(--shadow-y) * 4) calc(var(--shadow-blur) * 5) calc(var(--shadow-spread) - 3px) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 100%), transparent);
+    --shadow-xl: calc(var(--shadow-x) * 6) calc(var(--shadow-y) * 6) calc(var(--shadow-blur) * 7) calc(var(--shadow-spread) - 5px) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 100%), transparent);
+    --shadow-2xl: calc(var(--shadow-x) * 8) calc(var(--shadow-y) * 8) calc(max(0px, var(--shadow-blur) * 9 - 8px)) calc(var(--shadow-spread) - 12px) color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 250%), transparent);
+    --shadow: var(--shadow-md);
+
+    /* ── Current month — bardzo subtelny lawendowy nalot ── */
+    --current-month-row:   243 28% 97%;
+    --current-month-label: 243 24% 95.5%;
+
+    /* ── Status cell color tokens ── */
+
+    /* Opłacone — cicha szałwiowa mięta */
+    --paid-bg:         148 26% 94%;
+    --paid-bg-hover:   148 26% 88%;
+    --paid-m-text:     210 50% 32%;
+    --paid-j-text:     255 42% 38%;
+    --paid-mj-text:    148 40% 26%;
+
+    /* Do opłacenia — whisper brzoskwiniowo-różowy, bardzo stonowany */
+    --unpaid-bg:       22 48% 96.5%;
+    --unpaid-bg-hover: 22 48% 91%;
+    --unpaid-text:     18 40% 38%;
+
+    /* Niewymagane — prawie niewidoczny ciepły szary */
+    --notreq-bg:       36 8% 96%;
+    --notreq-bg-hover: 36 8% 91%;
+    --notreq-text:     220 10% 58%;
+
+    /* ── Badge color tokens ── */
+    --badge-m-bg:   210 52% 93%;
+    --badge-m-text: 210 50% 30%;
+    --badge-j-bg:   255 46% 94%;
+    --badge-j-text: 255 42% 36%;
+    --badge-mj-bg:  148 34% 92%;
+    --badge-mj-text:148 40% 24%;
+  }
+}
+
+/* ── Dark mode (Nordic Dark) ── */
+.dark {
+  --background: 228 30% 7%;
+  --foreground: 220 30% 92%;
+  --muted: 228 25% 13%;
+  --muted-foreground: 220 16% 56%;
+  --popover: 228 30% 9%;
+  --popover-foreground: 220 30% 92%;
+  --border: 228 22% 17%;
+  --input: 228 22% 17%;
+  --card: 228 26% 10%;
+  --card-foreground: 220 30% 92%;
+
+  /* Primary — bright indigo on dark */
+  --primary: 238 72% 68%;
+  --primary-foreground: 228 30% 7%;
+
+  --secondary: 228 25% 16%;
+  --secondary-foreground: 220 30% 92%;
+  --accent: 238 40% 18%;
+  --accent-foreground: 238 70% 80%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 238 72% 68%;
+
+  /* Current month row — dark mode */
+  --current-month-row:   228 35% 14%;
+  --current-month-label: 228 35% 16%;
+
+  /* Chart colors — soft, readable on dark */
+  --chart-1: 210 60% 68%;
+  --chart-2: 255 50% 72%;
+  --chart-3: 152 42% 58%;
+  --chart-4: 14 58% 68%;
+  --chart-5: 350 50% 68%;
+
+  /* Status cell colors — dark */
+  --paid-bg:         134 42% 10%;
+  --paid-bg-hover:   134 42% 14%;
+  --paid-m-text:     221 70% 66%;
+  --paid-j-text:     262 72% 70%;
+  --paid-mj-text:    134 50% 65%;
+  /* Do opłacenia — ciepła terakota / ceglany burgundowo-pomarańczowy */
+  --unpaid-bg:       16 44% 13%;
+  --unpaid-bg-hover: 16 44% 17%;
+  --unpaid-text:     16 65% 68%;
+  --notreq-bg:       228 22% 11%;
+  --notreq-bg-hover: 228 22% 15%;
+  --notreq-text:     220 16% 44%;
+
+  /* Badge colors — dark */
+  --badge-m-bg:    221 50% 16%;
+  --badge-m-text:  221 70% 66%;
+  --badge-j-bg:    262 50% 16%;
+  --badge-j-text:  262 72% 70%;
+  --badge-mj-bg:   174 50% 12%;
+  --badge-mj-text: 174 50% 55%;
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply font-sans antialiased bg-background text-foreground; }
+}
+
+/* ═══════════════════════════════════════════
+   STATUS CELL CLASSES (theme-editor-safe)
+═══════════════════════════════════════════ */
+.expense-cell {
+  transition: background-color 0.16s ease, color 0.12s ease;
+}
+
+.st-unpaid  { background-color: hsl(var(--unpaid-bg));  color: hsl(var(--unpaid-text)); }
+.st-paid    { background-color: hsl(var(--paid-bg));    font-weight: 600; }
+.st-notreq  { background-color: hsl(var(--notreq-bg));  color: hsl(var(--notreq-text)); }
+
+.st-paid-m  { color: hsl(var(--paid-m-text)); }
+.st-paid-j  { color: hsl(var(--paid-j-text)); }
+.st-paid-mj { color: hsl(var(--paid-mj-text)); }
+
+.st-unpaid-click:hover  { background-color: hsl(var(--unpaid-bg-hover)); }
+.st-paid-click:hover    { background-color: hsl(var(--paid-bg-hover)); }
+.st-notreq-click:hover  { background-color: hsl(var(--notreq-bg-hover)); }
+
+/* Current month row — delicate sky-blue wash */
+.bg-row-current         { background-color: hsl(var(--current-month-row)); }
+.bg-current-month-label { background-color: hsl(var(--current-month-label)); }
+
+/* Column crosshair dim */
+.col-dim { filter: brightness(0.95); }
+
+/* ═══════════════════════════════════════════
+   BADGE CLASSES (theme-editor-safe)
+═══════════════════════════════════════════ */
+.badge-m  { background-color: hsl(var(--badge-m-bg));  color: hsl(var(--badge-m-text)); }
+.badge-j  { background-color: hsl(var(--badge-j-bg));  color: hsl(var(--badge-j-text)); }
+.badge-mj { background-color: hsl(var(--badge-mj-bg)); color: hsl(var(--badge-mj-text)); }
+
+/* ═══════════════════════════════════════════
+   HEADER GRADIENT STRIP
+═══════════════════════════════════════════ */
+.header-accent-strip {
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    hsl(var(--chart-1)) 25%,
+    hsl(var(--primary)) 50%,
+    hsl(var(--chart-2)) 75%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════
+   PRINT OVERRIDES
+═══════════════════════════════════════════ */
+@media print {
+  .st-unpaid  { background-color: white !important; color: #aaa !important; }
+  .st-paid    { background-color: #e8f5e9 !important; color: #2e7d32 !important; }
+  .st-notreq  { background-color: white !important; color: #ddd !important; }
+  .badge-m, .badge-j, .badge-mj { background-color: #f0f0f0 !important; color: #333 !important; }
+}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 85%  { transform: translateX(-7px); }
+  30%, 70%  { transform: translateX(7px); }
+  45%, 55%  { transform: translateX(-4px); }
+  60%       { transform: translateX(4px); }
+}
+.animate-shake { animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+
+/* ═══════════════════════════════════════════
+   PRINT PAGE LAYOUT
+═══════════════════════════════════════════ */
+@media print {
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { font-size: 10px; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr { page-break-inside: avoid; }
+}
