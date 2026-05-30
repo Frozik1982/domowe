@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { type Category, type CellStatus, type AssignedTo, type CellData } from '@/hooks/useExpenseStore';
 import { type FilterType } from '@/types';
-import { Copy, Eye, EyeOff, Lock } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, Lock, Pencil, X } from 'lucide-react';
 import CellEditPopover from '@/components/CellEditPopover';
 
 export interface TableStore {
@@ -14,6 +14,7 @@ export interface TableStore {
   hidePastMonths: () => void;
   showAllMonths: () => void;
   setAutoHidePastMonths: (enabled: boolean) => void;
+  updateCategory?: (id: string, updates: Partial<Omit<Category, 'id'>>) => void;
   setNote?: (categoryId: string, monthIndex: number, note: string) => void;
 }
 
@@ -83,9 +84,10 @@ const MONTH_COL_W = 130;
 const CAT_COL_MIN = 80;
 
 export default function ExpenseTable({ store, filter, editMode, hideAmounts = false }: Props) {
-  const { data, getStatus, setStatus, copyPreviousMonth, toggleMonthHidden, hidePastMonths, showAllMonths, setAutoHidePastMonths } = store;
+  const { data, getStatus, setStatus, copyPreviousMonth, toggleMonthHidden, hidePastMonths, showAllMonths, setAutoHidePastMonths, updateCategory } = store;
   const [hover, setHover] = useState<{ row: number; col: string } | null>(null);
   const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; original: string; value: string } | null>(null);
 
   const cats = useMemo(() => [...data.categories].sort((a, b) => `${a.group || 'Bez grupy'}:${a.name}`.localeCompare(`${b.group || 'Bez grupy'}:${b.name}`, 'pl')), [data.categories]);
   const currentMonth = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
@@ -105,6 +107,27 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
       return;
     }
     setMenu({ cat, mi, status, rect: e.currentTarget.getBoundingClientRect() });
+  }
+
+  function startRenameCategory(cat: Category) {
+    if (!updateCategory) return;
+    setRenaming({ id: cat.id, original: cat.name, value: cat.name });
+  }
+
+  function cancelRenameCategory() {
+    setRenaming(null);
+  }
+
+  function saveRenameCategory() {
+    if (!renaming || !updateCategory) return;
+    const nextName = renaming.value.trim().replace(/\s+/g, ' ');
+    if (!nextName) return;
+    if (nextName === renaming.original) {
+      setRenaming(null);
+      return;
+    }
+    updateCategory(renaming.id, { name: nextName });
+    setRenaming(null);
   }
 
   return (
@@ -175,12 +198,57 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                     style={cat.color ? { borderTop: `3px solid ${cat.color}` } : {}}
                     className={`bg-muted/95 backdrop-blur-sm border-b border-l border-border py-3 px-2 text-center transition-colors ${isHovCol ? 'bg-primary/10 header-col-hover' : ''} print:bg-gray-100`}
                   >
-                    <span className="text-[11px] font-semibold text-foreground leading-tight flex items-center justify-center gap-1 truncate" title={cat.name}>
-                      {cat.color && (
-                        <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                      )}
-                      <span className="truncate">{cat.name}</span>
-                    </span>
+                    {renaming?.id === cat.id ? (
+                      <div
+                        className="space-y-1 print:hidden"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          autoFocus
+                          value={renaming.value}
+                          onChange={(e) => setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveRenameCategory();
+                            if (e.key === 'Escape') cancelRenameCategory();
+                          }}
+                          className="w-full rounded-md border border-primary/40 bg-background px-1.5 py-1 text-[11px] font-semibold text-foreground outline-none focus:ring-2 focus:ring-primary/25"
+                          aria-label={`Nowa nazwa kategorii ${cat.name}`}
+                        />
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={saveRenameCategory}
+                            disabled={!renaming.value.trim()}
+                            className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Zapisz nazwę"
+                          >
+                            <Check className="h-3 w-3" /> Zapisz
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRenameCategory}
+                            className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                            title="Anuluj zmianę"
+                          >
+                            <X className="h-3 w-3" /> Anuluj
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); startRenameCategory(cat); }}
+                        className="mx-auto min-w-0 max-w-full text-[11px] font-semibold text-foreground leading-tight flex items-center justify-center gap-1 truncate rounded-md px-1 py-0.5 hover:bg-primary/10 hover:text-primary transition-colors group/name print:pointer-events-none"
+                        title={`Kliknij, żeby szybko zmienić nazwę: ${cat.name}`}
+                      >
+                        {cat.color && (
+                          <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                        )}
+                        <span className="truncate">{cat.name}</span>
+                        {updateCategory && <Pencil className="h-3 w-3 opacity-0 group-hover/name:opacity-60 shrink-0 transition-opacity print:hidden" />}
+                      </button>
+                    )}
                     {cat.group && (
                       <span className="text-[8px] text-primary/80 block mt-0.5 truncate">{cat.group}</span>
                     )}
