@@ -29,7 +29,7 @@ function smartPaidStatus(filter: FilterType): CellStatus {
   return 'paid-MJ';
 }
 
-function cellClass(status: CellStatus, isColHover: boolean, isExactHover: boolean, editMode: boolean, isViewOnly: boolean): string {
+function cellClass(status: CellStatus, isColHover: boolean, isExactHover: boolean, editMode: boolean, isViewOnly: boolean, dueClass?: string): string {
   const parts = ['expense-cell', 'border-l', 'border-border/30', 'py-2', 'text-center', 'select-none', 'relative'];
 
   const canErase = editMode && status !== 'unpaid';
@@ -49,9 +49,20 @@ function cellClass(status: CellStatus, isColHover: boolean, isExactHover: boolea
     parts.push(canErase ? 'st-paid-click cursor-pointer' : 'cursor-default');
   }
 
+  if (dueClass) parts.push(dueClass);
   if (isColHover) parts.push('col-hover');
   if (isExactHover) parts.push('cell-exact-hover');
   return parts.join(' ');
+}
+
+
+function getDueClass(cat: Category, mi: number, status: CellStatus, currentMonth: number | null): string | undefined {
+  if (!cat.dueDay || status !== 'unpaid' || currentMonth !== mi) return undefined;
+  const daysLeft = cat.dueDay - new Date().getDate();
+  if (daysLeft < 0) return 'cell-overdue';
+  if (daysLeft === 0) return 'cell-due-today';
+  if (daysLeft <= 5) return 'cell-due-soon';
+  return undefined;
 }
 
 function getCurrentMonthIndex(year: number): number | null {
@@ -199,9 +210,10 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
                     const showLock = isPaid && !editMode;
                     const isColHov = hover?.col === cat.id;
                     const isExact  = isColHov && hover?.row === mi;
+                    const dueClass = getDueClass(cat, mi, status, currentMonth);
                     return (
                       <td key={cat.id}
-                        className={cellClass(status, isColHov, isExact, editMode, isViewOnly)}
+                        className={cellClass(status, isColHov, isExact, editMode, isViewOnly, dueClass)}
                         onClick={e => handleCellClick(e, cat, mi, status)}
                         onMouseEnter={() => setHover({ row: mi, col: cat.id })}
                         onMouseLeave={() => setHover(null)}
@@ -214,11 +226,18 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
                             ? `${cat.name} – ${month} · Wybierz M, J lub M+J aby rejestrować płatności`
                             : isPaid
                             ? `${cat.name} – ${month} · Zablokowane — włącz Edycję aktywną aby wyczyścić`
+                            : dueClass === 'cell-overdue'
+                            ? `${cat.name} – ${month} · Termin minął (${cat.dueDay}. dzień miesiąca)`
+                            : dueClass === 'cell-due-today'
+                            ? `${cat.name} – ${month} · Termin płatności dziś`
+                            : dueClass === 'cell-due-soon'
+                            ? `${cat.name} – ${month} · Termin płatności wkrótce (${cat.dueDay}. dzień miesiąca)`
                             : `${cat.name} – ${month} · Kliknij aby oznaczyć jako opłacone`
                         }
                       >
                         <span className="text-xs flex items-center justify-center gap-0.5 w-full">
                           {CELL_LABEL[status]}
+                          {dueClass && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full due-dot" />}
                           {showLock && <Lock className="h-2 w-2 opacity-20 shrink-0" />}
                           {(() => { const n = data.cells.find(c => c.categoryId === cat.id && c.monthIndex === mi)?.note; return n ? <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" title={n} /> : null; })()}
                         </span>

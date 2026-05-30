@@ -6,6 +6,7 @@ import PinGate, { useLogout } from '@/components/PinGate';
 import ExpenseTable from '@/components/ExpenseTable';
 import MobileMonthView from '@/components/MobileMonthView';
 import SummaryCards from '@/components/SummaryCards';
+import CurrentMonthPanel from '@/components/CurrentMonthPanel';
 import SettingsDialog from '@/components/SettingsDialog';
 import ChartsSection from '@/components/ChartsSection';
 import ManageCategoriesDialog from '@/components/ManageCategoriesDialog';
@@ -168,6 +169,7 @@ function AppContent() {
       <main className="container mx-auto px-3 sm:px-4 py-4 print:p-2 print:max-w-none">
         <div className="print:hidden">
           <SummaryCards data={data} />
+          <CurrentMonthPanel data={data} />
         </div>
 
         {/* Desktop: full table */}
