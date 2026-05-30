@@ -12,7 +12,7 @@ import ManageCategoriesDialog from '@/components/ManageCategoriesDialog';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Printer, Sun, Moon, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut } from 'lucide-react';
 import InstallPrompt from '@/components/InstallPrompt';
 import PdfExportDialog from '@/components/PdfExportDialog';
 import { type FilterType } from '@/types';
@@ -26,7 +26,7 @@ const FILTERS: { label: string; value: FilterType }[] = [
 // ── Inner component — renders INSIDE PinGate so useLogout() has access to context ──
 function AppContent() {
   const { logout } = useLogout();          // ✅ now inside PinGate Provider
-  const { isDark, toggle: toggleDark } = useDarkMode();
+  useDarkMode();
   const store = useExpenseStore();
 
   const [filter, setFilter]                 = useState<FilterType>('all');
@@ -122,10 +122,6 @@ function AppContent() {
               <Button variant="outline" size="sm" className={`h-7 px-2 gap-1 text-xs ${showCharts ? 'bg-muted' : ''}`}
                 onClick={() => setShowCharts(v => !v)}>
                 <BarChart2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wykresy</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={toggleDark}
-                title={isDark ? 'Tryb jasny' : 'Tryb ciemny'}>
-                {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               </Button>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setSettingsOpen(true)} title="Ustawienia">
                 <Settings className="h-3.5 w-3.5" />
