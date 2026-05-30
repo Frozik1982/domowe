@@ -149,8 +149,10 @@ function AppContent() {
   }, [store.data, names]);
 
   const { data, setYear, addCategory, updateCategory, deleteCategory, restoreCategory, permanentlyDeleteCategory, createNextYearFromCurrent, clearHistoryLog, setStatus, clearAllCells, setNote, undoLastChange, canUndo, history } = store;
-  const startYear = data.year;
-  const endYear   = data.year + 1;
+  const currentFiscalYear = new Date().getMonth() >= 4 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+  const startYear = Math.max(data.year, currentFiscalYear);
+  const endYear   = startYear + 1;
+  const canGoPreviousYear = startYear > currentFiscalYear;
 
   return (
     <div className="min-h-screen bg-background print:bg-white">
@@ -166,7 +168,7 @@ function AppContent() {
               <span className="text-xl select-none">💳</span>
               <h1 className="text-sm font-bold text-foreground hidden sm:block">Płatności domowe</h1>
               <div className="flex items-center gap-0.5 ml-1">
-                <button onClick={() => setYear(startYear - 1)} className="p-1.5 hover:bg-muted rounded-lg transition-colors"><ChevronLeft className="h-3.5 w-3.5" /></button>
+                <button onClick={() => canGoPreviousYear && setYear(startYear - 1)} disabled={!canGoPreviousYear} className="p-1.5 hover:bg-muted rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="h-3.5 w-3.5" /></button>
                 <span className="text-sm font-semibold bg-muted px-2.5 py-1 rounded-lg">{startYear}/{String(endYear).slice(2)}</span>
                 <button onClick={() => setYear(startYear + 1)} className="p-1.5 hover:bg-muted rounded-lg transition-colors"><ChevronRight className="h-3.5 w-3.5" /></button>
               </div>

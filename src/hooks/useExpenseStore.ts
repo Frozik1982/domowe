@@ -60,6 +60,15 @@ const DEFAULT_CATEGORIES: Category[] = [
 
 const STORAGE_KEY = 'expense-tracker-v1';
 
+function getCurrentFiscalYear(): number {
+  const now = new Date();
+  return now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+function clampToCurrentFiscalYear(year: number): number {
+  return Math.max(year, getCurrentFiscalYear());
+}
+
 function getCurrentMonthIndexForYear(year: number): number | null {
   const now = new Date();
   const y = now.getFullYear();
@@ -90,10 +99,14 @@ function getNextStatus(current: CellStatus, assignedTo: AssignedTo): CellStatus 
 function getInitialData(): StoreData {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object' && typeof parsed.year === 'number') {
+        return { ...parsed, year: clampToCurrentFiscalYear(parsed.year) };
+      }
+    }
   } catch { /* ignore */ }
-  const now = new Date();
-  const year = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+  const year = getCurrentFiscalYear();
   return { year, categories: DEFAULT_CATEGORIES, cells: [], hiddenMonths: [], visiblePastMonths: [], autoHidePastMonths: true, history: [] };
 }
 
@@ -224,7 +237,7 @@ export function useExpenseStore() {
   }
 
   function setYear(year: number) {
-    commitData(prev => ({ ...prev, year }), 'Zmieniono rok');
+    commitData(prev => ({ ...prev, year: clampToCurrentFiscalYear(year) }), 'Zmieniono rok');
   }
 
   function clearAllCells() {
