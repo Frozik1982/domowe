@@ -200,7 +200,7 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                   >
                     {renaming?.id === cat.id ? (
                       <div
-                        className="space-y-1 print:hidden"
+                        className="mx-auto flex max-w-[150px] items-center justify-center gap-1 print:hidden"
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                       >
@@ -212,28 +212,28 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                             if (e.key === 'Enter') saveRenameCategory();
                             if (e.key === 'Escape') cancelRenameCategory();
                           }}
-                          className="w-full rounded-md border border-primary/40 bg-background px-1.5 py-1 text-[11px] font-semibold text-foreground outline-none focus:ring-2 focus:ring-primary/25"
+                          className="h-7 min-w-0 flex-1 rounded-lg border border-primary/45 bg-background px-2 text-center text-[11px] font-semibold text-foreground outline-none focus:ring-2 focus:ring-primary/25"
                           aria-label={`Nowa nazwa kategorii ${cat.name}`}
                         />
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={saveRenameCategory}
-                            disabled={!renaming.value.trim()}
-                            className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Zapisz nazwę"
-                          >
-                            <Check className="h-3 w-3" /> Zapisz
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelRenameCategory}
-                            className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
-                            title="Anuluj zmianę"
-                          >
-                            <X className="h-3 w-3" /> Anuluj
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={saveRenameCategory}
+                          disabled={!renaming.value.trim()}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Zapisz nazwę"
+                          aria-label="Zapisz nazwę"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelRenameCategory}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title="Anuluj zmianę"
+                          aria-label="Anuluj zmianę"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     ) : (
                       <button
