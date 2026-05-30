@@ -33,6 +33,7 @@ export default function CategoryDialog({ open, onOpenChange, initialData, onSave
   const [assignedTo, setAssignedTo]         = useState<AssignedTo>('M+J');
   const [dueDay, setDueDay]                 = useState('');
   const [color, setColor]                   = useState<string | undefined>(undefined);
+  const [group, setGroup]                   = useState('');
   const [isInstallment, setIsInstallment]   = useState(false);
   const [installmentMonths, setInstallmentMonths] = useState('');
   const [installmentStartDate, setInstallmentStartDate] = useState<Date | undefined>(undefined);
@@ -45,6 +46,7 @@ export default function CategoryDialog({ open, onOpenChange, initialData, onSave
       setAssignedTo(initialData?.assignedTo ?? 'M+J');
       setDueDay(initialData?.dueDay ? String(initialData.dueDay) : '');
       setColor(initialData?.color);
+      setGroup(initialData?.group ?? '');
       const hasInstallment = !!initialData?.installmentMonths;
       setIsInstallment(hasInstallment);
       setInstallmentMonths(hasInstallment ? String(initialData!.installmentMonths) : '');
@@ -65,6 +67,7 @@ export default function CategoryDialog({ open, onOpenChange, initialData, onSave
       assignedTo,
       dueDay: !isNaN(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 28 ? dueDayNum : undefined,
       color: color || undefined,
+      group: group.trim() || undefined,
       installmentMonths: isInstallment && !isNaN(installNum) && installNum > 0 ? installNum : undefined,
       installmentStartDate: isInstallment && installmentStartDate
         ? installmentStartDate.toISOString().slice(0, 10)
@@ -113,6 +116,18 @@ export default function CategoryDialog({ open, onOpenChange, initialData, onSave
               value={amount}
               onChange={e => setAmount(e.target.value)}
             />
+          </div>
+
+          {/* Group */}
+          <div className="space-y-1.5">
+            <Label htmlFor="cat-group">Grupa — opcjonalne</Label>
+            <Input
+              id="cat-group"
+              placeholder="np. Dom, Raty, Elektronika…"
+              value={group}
+              onChange={e => setGroup(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">Grupy pomagają porządkować kategorie i dashboard.</p>
           </div>
 
           {/* Assignee + Due day */}

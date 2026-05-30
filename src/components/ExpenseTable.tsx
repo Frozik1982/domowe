@@ -87,7 +87,7 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
   const [hover, setHover] = useState<{ row: number; col: string } | null>(null);
   const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
 
-  const cats = useMemo(() => data.categories, [data.categories]);
+  const cats = useMemo(() => [...data.categories].sort((a, b) => `${a.group || 'Bez grupy'}:${a.name}`.localeCompare(`${b.group || 'Bez grupy'}:${b.name}`, 'pl')), [data.categories]);
   const currentMonth = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
   const hiddenMonths = useMemo(() => new Set(data.hiddenMonths ?? []), [data.hiddenMonths]);
   const visibleMonthIndexes = useMemo(() => MONTHS.map((_, i) => i).filter(i => !hiddenMonths.has(i)), [hiddenMonths]);
@@ -181,6 +181,9 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                       )}
                       <span className="truncate">{cat.name}</span>
                     </span>
+                    {cat.group && (
+                      <span className="text-[8px] text-primary/80 block mt-0.5 truncate">{cat.group}</span>
+                    )}
                     {cat.amount > 0 && (
                       <span className="text-[9px] text-muted-foreground block mt-0.5">
                         {hideAmounts ? '••• zł' : `${cat.amount.toLocaleString('pl-PL')} zł`}

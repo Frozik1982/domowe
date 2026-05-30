@@ -12,6 +12,8 @@ export interface Category {
   color?: string;            // optional accent color (hex)
   installmentMonths?: number; // if set: total number of installments (rata)
   installmentStartDate?: string; // ISO date string: when installments started
+  group?: string;            // optional group name used to organize categories
+  deletedAt?: string;        // ISO timestamp when moved to trash
 }
 
 export interface CellData {
@@ -31,22 +33,29 @@ export interface StoreData {
   visiblePastMonths?: number[];
   /** Auto-hide months that are before the current fiscal month */
   autoHidePastMonths?: boolean;
+  history?: HistoryEntry[];
+}
+
+export interface HistoryEntry {
+  id: string;
+  at: string;
+  label: string;
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'czynsz',   name: 'Czynsz',      amount: 0, assignedTo: 'M+J' },
-  { id: 'prad',     name: 'Prąd',        amount: 0, assignedTo: 'M+J' },
-  { id: 'upc',      name: 'UPC',         amount: 0, assignedTo: 'M+J' },
-  { id: 'oneplus',  name: 'One Plus',    amount: 0, assignedTo: 'M' },
-  { id: 'tvtcl',    name: 'TV TCL',      amount: 0, assignedTo: 'M+J' },
-  { id: 'termomix', name: 'Termomix',    amount: 0, assignedTo: 'M+J' },
-  { id: 'drukarka', name: 'Drukarka 3D', amount: 0, assignedTo: 'M' },
-  { id: 'procesor', name: 'Procesor',    amount: 0, assignedTo: 'M' },
-  { id: 'lodowka',  name: 'Lodówka',     amount: 0, assignedTo: 'M+J' },
-  { id: 'tablet',   name: 'Tablet',      amount: 0, assignedTo: 'J' },
-  { id: 'airfryer', name: 'Air Fryer',   amount: 0, assignedTo: 'M+J' },
-  { id: 'xiaomi',   name: 'Xiaomi',      amount: 0, assignedTo: 'M' },
-  { id: 'zegarek',  name: 'Zegarek',     amount: 0, assignedTo: 'J' },
+  { id: 'czynsz',   name: 'Czynsz',      group: 'Dom', amount: 0, assignedTo: 'M+J' },
+  { id: 'prad',     name: 'Prąd',        group: 'Dom', amount: 0, assignedTo: 'M+J' },
+  { id: 'upc',      name: 'UPC',         group: 'Dom', amount: 0, assignedTo: 'M+J' },
+  { id: 'oneplus',  name: 'One Plus',    group: 'Elektronika', amount: 0, assignedTo: 'M' },
+  { id: 'tvtcl',    name: 'TV TCL',      group: 'Elektronika', amount: 0, assignedTo: 'M+J' },
+  { id: 'termomix', name: 'Termomix',    group: 'Raty', amount: 0, assignedTo: 'M+J' },
+  { id: 'drukarka', name: 'Drukarka 3D', group: 'Elektronika', amount: 0, assignedTo: 'M' },
+  { id: 'procesor', name: 'Procesor',    group: 'Elektronika', amount: 0, assignedTo: 'M' },
+  { id: 'lodowka',  name: 'Lodówka',     group: 'Raty', amount: 0, assignedTo: 'M+J' },
+  { id: 'tablet',   name: 'Tablet',      group: 'Elektronika', amount: 0, assignedTo: 'J' },
+  { id: 'airfryer', name: 'Air Fryer',   group: 'Raty', amount: 0, assignedTo: 'M+J' },
+  { id: 'xiaomi',   name: 'Xiaomi',      group: 'Elektronika', amount: 0, assignedTo: 'M' },
+  { id: 'zegarek',  name: 'Zegarek',     group: 'Elektronika', amount: 0, assignedTo: 'J' },
 ];
 
 const STORAGE_KEY = 'expense-tracker-v1';
@@ -85,7 +94,7 @@ function getInitialData(): StoreData {
   } catch { /* ignore */ }
   const now = new Date();
   const year = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1;
-  return { year, categories: DEFAULT_CATEGORIES, cells: [], hiddenMonths: [], visiblePastMonths: [], autoHidePastMonths: true };
+  return { year, categories: DEFAULT_CATEGORIES, cells: [], hiddenMonths: [], visiblePastMonths: [], autoHidePastMonths: true, history: [] };
 }
 
 export function useExpenseStore() {
@@ -98,11 +107,13 @@ export function useExpenseStore() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data]);
 
-  function commitData(updater: (prev: StoreData) => StoreData) {
+  function commitData(updater: (prev: StoreData) => StoreData, label = 'Zmiana danych') {
     setData(prev => {
       const next = updater(prev);
       if (next !== prev) {
-        setUndoStack(stack => [prev, ...stack].slice(0, 25));
+        setUndoStack(stack => [prev, ...stack].slice(0, 50));
+        const entry: HistoryEntry = { id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: new Date().toISOString(), label };
+        return { ...next, history: [entry, ...(next.history ?? prev.history ?? [])].slice(0, 50) };
       }
       return next;
     });
@@ -157,7 +168,7 @@ export function useExpenseStore() {
           c => !(c.categoryId === categoryId && c.monthIndex === monthIndex)
         );
         return { ...prev, cells: [...filtered, { categoryId, monthIndex, status: next }] };
-      });
+      }, 'Zmieniono status płatności');
     },
     []
   );
@@ -168,7 +179,7 @@ export function useExpenseStore() {
       const prevCells  = prev.cells.filter(c => c.monthIndex === monthIndex - 1);
       const otherCells = prev.cells.filter(c => c.monthIndex !== monthIndex);
       return { ...prev, cells: [...otherCells, ...prevCells.map(c => ({ ...c, monthIndex }))] };
-    });
+    }, 'Skopiowano poprzedni miesiąc');
   }, []);
 
   const addCategory = useCallback(
@@ -176,7 +187,7 @@ export function useExpenseStore() {
       commitData(prev => ({
         ...prev,
         categories: [...prev.categories, { ...cat, id: `cat-${Date.now()}` }],
-      })),
+      }), 'Dodano kategorię'),
     []
   );
 
@@ -185,16 +196,15 @@ export function useExpenseStore() {
       commitData(prev => ({
         ...prev,
         categories: prev.categories.map(c => (c.id === id ? { ...c, ...updates } : c)),
-      })),
+      }), 'Zmieniono kategorię'),
     []
   );
 
   const deleteCategory = useCallback((id: string) =>
     commitData(prev => ({
       ...prev,
-      categories: prev.categories.filter(c => c.id !== id),
-      cells:      prev.cells.filter(c => c.categoryId !== id),
-    })), []);
+      categories: prev.categories.map(c => c.id === id ? { ...c, deletedAt: new Date().toISOString() } : c),
+    }), 'Przeniesiono kategorię do kosza'), []);
 
   // ── Plain functions (not hooks — count above must stay at 6 useCallbacks) ──
 
@@ -210,15 +220,15 @@ export function useExpenseStore() {
         return { ...prev, cells: filtered };
       }
       return { ...prev, cells: [...filtered, { categoryId, monthIndex, status, note: existing?.note }] };
-    });
+    }, 'Ustawiono status płatności');
   }
 
   function setYear(year: number) {
-    commitData(prev => ({ ...prev, year }));
+    commitData(prev => ({ ...prev, year }), 'Zmieniono rok');
   }
 
   function clearAllCells() {
-    commitData(prev => ({ ...prev, cells: [] }));
+    commitData(prev => ({ ...prev, cells: [] }), 'Wyczyszczono historię płatności');
   }
 
   function getNote(categoryId: string, monthIndex: number): string {
@@ -236,10 +246,39 @@ export function useExpenseStore() {
         return { ...prev, cells: [...filtered, { categoryId, monthIndex, status: 'unpaid', note }] };
       }
       return prev;
-    });
+    }, 'Zmieniono notatkę płatności');
   }
 
+  function restoreCategory(id: string) {
+    commitData(prev => ({
+      ...prev,
+      categories: prev.categories.map(c => c.id === id ? { ...c, deletedAt: undefined } : c),
+    }), 'Przywrócono kategorię z kosza');
+  }
 
+  function permanentlyDeleteCategory(id: string) {
+    commitData(prev => ({
+      ...prev,
+      categories: prev.categories.filter(c => c.id !== id),
+      cells: prev.cells.filter(c => c.categoryId !== id),
+    }), 'Usunięto kategorię na stałe');
+  }
+
+  function createNextYearFromCurrent() {
+    commitData(prev => ({
+      ...prev,
+      year: prev.year + 1,
+      categories: prev.categories.filter(c => !c.deletedAt).map(c => ({ ...c, deletedAt: undefined })),
+      cells: [],
+      hiddenMonths: [],
+      visiblePastMonths: [],
+      autoHidePastMonths: true,
+    }), `Utworzono rok ${data.year + 1}/${String(data.year + 2).slice(2)}`);
+  }
+
+  function clearHistoryLog() {
+    setData(prev => ({ ...prev, history: [] }));
+  }
 
   function toggleMonthHidden(monthIndex: number, hidden?: boolean) {
     if (monthIndex < 0 || monthIndex > 11) return;
@@ -261,7 +300,7 @@ export function useExpenseStore() {
         hiddenMonths: Array.from(hiddenMonths).sort((a, b) => a - b),
         visiblePastMonths: Array.from(visiblePastMonths).sort((a, b) => a - b),
       };
-    });
+    }, 'Zmieniono widoczność miesiąca');
   }
 
   function hidePastMonths() {
@@ -276,7 +315,7 @@ export function useExpenseStore() {
         visiblePastMonths: [],
         autoHidePastMonths: true,
       };
-    });
+    }, 'Ukryto minione miesiące');
   }
 
   function showAllMonths() {
@@ -284,16 +323,21 @@ export function useExpenseStore() {
       ...prev,
       hiddenMonths: [],
       visiblePastMonths: Array.from({ length: 12 }, (_, i) => i),
-    }));
+    }), 'Pokazano wszystkie miesiące');
   }
 
   function setAutoHidePastMonths(enabled: boolean) {
-    commitData(prev => ({ ...prev, autoHidePastMonths: enabled }));
+    commitData(prev => ({ ...prev, autoHidePastMonths: enabled }), 'Zmieniono auto-ukrywanie miesięcy');
   }
 
 
+  const activeData: StoreData = { ...data, categories: data.categories.filter(c => !c.deletedAt) };
+  const trashCategories = data.categories.filter(c => !!c.deletedAt);
+
   return {
-    data,
+    data: activeData,
+    rawData: data,
+    trashCategories,
     getStatus,
     cycleStatus,
     setStatus,
@@ -301,6 +345,10 @@ export function useExpenseStore() {
     addCategory,
     updateCategory,
     deleteCategory,
+    restoreCategory,
+    permanentlyDeleteCategory,
+    createNextYearFromCurrent,
+    clearHistoryLog,
     setYear,
     clearAllCells,
     getNote,
@@ -311,5 +359,6 @@ export function useExpenseStore() {
     setAutoHidePastMonths,
     undoLastChange,
     canUndo: undoStack.length > 0,
+    history: data.history ?? [],
   };
 }

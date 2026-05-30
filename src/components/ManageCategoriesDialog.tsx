@@ -26,6 +26,9 @@ interface Props {
   onAdd: (cat: Omit<Category, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<Omit<Category, 'id'>>) => void;
   onDelete: (id: string) => void;
+  trashedCategories?: Category[];
+  onRestore?: (id: string) => void;
+  onPermanentDelete?: (id: string) => void;
   onResetCell: (categoryId: string, monthIndex: number) => void;
   onClearAll: () => void;
   onSetNote: (categoryId: string, monthIndex: number, note: string) => void;
@@ -34,6 +37,7 @@ interface Props {
 export default function ManageCategoriesDialog({
   open, onOpenChange, categories, cells,
   onAdd, onUpdate, onDelete, onResetCell, onClearAll, onSetNote,
+  trashedCategories = [], onRestore, onPermanentDelete,
 }: Props) {
   const [editCat, setEditCat]               = useState<Category | null>(null);
   const [addOpen, setAddOpen]               = useState(false);
@@ -48,10 +52,16 @@ export default function ManageCategoriesDialog({
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const filteredCategories = normalizedSearch
     ? categories.filter(cat => {
-        const searchText = [cat.name, cat.assignedTo, cat.amount ? `${cat.amount}` : '', cat.dueDay ? `${cat.dueDay}` : ''].join(' ').toLowerCase();
+        const searchText = [cat.name, cat.group, cat.assignedTo, cat.amount ? `${cat.amount}` : '', cat.dueDay ? `${cat.dueDay}` : ''].join(' ').toLowerCase();
         return searchText.includes(normalizedSearch);
       })
     : categories;
+  const groupedCategories = filteredCategories.reduce<Record<string, Category[]>>((acc, cat) => {
+    const group = cat.group?.trim() || 'Bez grupy';
+    (acc[group] ??= []).push(cat);
+    return acc;
+  }, {});
+  const groupNames = Object.keys(groupedCategories).sort((a, b) => a.localeCompare(b, 'pl'));
 
   function getCellData(categoryId: string, monthIndex: number) {
     return cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex);
@@ -78,7 +88,7 @@ export default function ManageCategoriesDialog({
             <DialogHeader>
               <DialogTitle className="text-base">📋 Zarządzaj kategoriami</DialogTitle>
               <DialogDescription className="text-xs mt-1">
-                Rozwiń kategorię, aby zresetować miesiące lub dodać notatki do płatności.
+                Kategorie są grupowane. Usunięte trafiają do kosza i można je przywrócić.
               </DialogDescription>
             </DialogHeader>
             <div className="relative mt-4">
@@ -102,7 +112,14 @@ export default function ManageCategoriesDialog({
               <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
                 Brak kategorii pasujących do wyszukiwania.
               </div>
-            ) : filteredCategories.map(cat => {
+            ) : groupNames.map(groupName => (
+              <div key={groupName} className="space-y-2">
+                <div className="flex items-center gap-2 px-1 pt-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{groupName}</span>
+                  <span className="h-px flex-1 bg-border/60" />
+                  <span className="text-[10px] text-muted-foreground">{groupedCategories[groupName].length}</span>
+                </div>
+                {groupedCategories[groupName].map(cat => {
               const isExpanded = expandedCatId === cat.id;
               return (
                 <div key={cat.id} className="rounded-xl border border-border bg-card overflow-hidden">
@@ -204,12 +221,31 @@ export default function ManageCategoriesDialog({
                 </div>
               );
             })}
+              </div>
+            ))}
           </div>
 
           <div className="px-4 py-4 border-t border-border bg-muted/20 space-y-2">
             <Button className="w-full gap-2" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" /> Dodaj nową kategorię
             </Button>
+            <details className="group rounded-xl border border-border/60 bg-background/35 px-3 py-2">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+                <span className="flex items-center gap-2"><Trash2 className="h-3.5 w-3.5" /> Kosz kategorii ({trashedCategories.length})</span>
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 space-y-1.5">
+                {trashedCategories.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-1 py-2">Kosz jest pusty.</p>
+                ) : trashedCategories.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-2 py-1.5">
+                    <span className="flex-1 min-w-0 truncate text-xs font-medium">{cat.name}</span>
+                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onRestore?.(cat.id)}>Przywróć</Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={() => onPermanentDelete?.(cat.id)}>Usuń na stałe</Button>
+                  </div>
+                ))}
+              </div>
+            </details>
             <details className="group rounded-xl border border-border/60 bg-background/35 px-3 py-2">
               <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
                 <span className="flex items-center gap-2"><ShieldAlert className="h-3.5 w-3.5" /> Zaawansowane / niebezpieczne akcje</span>
@@ -236,16 +272,16 @@ export default function ManageCategoriesDialog({
       <AlertDialog open={!!deleteCatId} onOpenChange={o => { if (!o) setDeleteCatId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usuń kategorię „{deleteName}"?</AlertDialogTitle>
+            <AlertDialogTitle>Przenieść kategorię „{deleteName}" do kosza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Spowoduje to <strong>bezpowrotne usunięcie całej historii płatności</strong> dla tej kategorii.
+              Kategoria zniknie z tabeli, ale historia zostanie zachowana. Możesz ją później przywrócić z kosza.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Anuluj</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => { if (deleteCatId) { onDelete(deleteCatId); setDeleteCatId(null); } }}>
-              Tak, usuń permanentnie
+              Przenieś do kosza
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

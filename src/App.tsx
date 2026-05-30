@@ -15,9 +15,10 @@ import ManageCategoriesDialog from '@/components/ManageCategoriesDialog';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut, Undo2, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut, Undo2, Eye, EyeOff, CalendarPlus, History } from 'lucide-react';
 import InstallPrompt from '@/components/InstallPrompt';
 import PdfExportDialog from '@/components/PdfExportDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { type FilterType } from '@/types';
 
 const STORAGE_KEY = 'expense-tracker-v1';
@@ -94,6 +95,7 @@ function AppContent() {
   const [showCharts, setShowCharts]         = useState(false);
   const [pdfOpen, setPdfOpen]               = useState(false);
   const [hideAmounts, setHideAmounts]       = useState(() => localStorage.getItem('expense-hide-amounts') === 'true');
+  const [historyOpen, setHistoryOpen]       = useState(false);
 
   useEffect(() => {
     localStorage.setItem('expense-hide-amounts', String(hideAmounts));
@@ -146,7 +148,7 @@ function AppContent() {
     toast.success('Plik Excel wyeksportowany');
   }, [store.data, names]);
 
-  const { data, setYear, addCategory, updateCategory, deleteCategory, setStatus, clearAllCells, setNote, undoLastChange, canUndo } = store;
+  const { data, setYear, addCategory, updateCategory, deleteCategory, restoreCategory, permanentlyDeleteCategory, createNextYearFromCurrent, clearHistoryLog, setStatus, clearAllCells, setNote, undoLastChange, canUndo, history } = store;
   const startYear = data.year;
   const endYear   = data.year + 1;
 
@@ -192,6 +194,31 @@ function AppContent() {
               </Button>
 
               <Button
+                variant="outline" size="sm"
+                className="h-7 px-2 gap-1 text-xs"
+                onClick={() => setHistoryOpen(true)}
+                title="Pokaż historię zmian"
+              >
+                <History className="h-3.5 w-3.5" /><span className="hidden lg:inline">Historia</span>
+              </Button>
+
+              <Button
+                variant="outline" size="sm"
+                className="h-7 px-2 gap-1 text-xs"
+                onClick={() => {
+                  if (confirm(`Utworzyć nowy rok ${data.year + 1}/${String(data.year + 2).slice(2)} na podstawie obecnego?
+
+Kategorie, kwoty, terminy i grupy zostaną skopiowane, a płatności wyczyszczone.`)) {
+                    createNextYearFromCurrent();
+                    toast.success('Utworzono nowy rok rozliczeniowy');
+                  }
+                }}
+                title="Utwórz kolejny rok na podstawie obecnego"
+              >
+                <CalendarPlus className="h-3.5 w-3.5" /><span className="hidden lg:inline">Nowy rok</span>
+              </Button>
+
+              <Button
                 variant={hideAmounts ? 'secondary' : 'outline'} size="sm"
                 className="h-7 px-2 gap-1 text-xs"
                 onClick={() => setHideAmounts(v => !v)}
@@ -223,7 +250,7 @@ function AppContent() {
               </Button>
               <Button variant="outline" size="sm" className={`h-7 px-2 gap-1 text-xs ${showCharts ? 'bg-muted' : ''}`}
                 onClick={() => setShowCharts(v => !v)}>
-                <BarChart2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wykresy</span>
+                <BarChart2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Dashboard</span>
               </Button>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setSettingsOpen(true)} title="Ustawienia">
                 <Settings className="h-3.5 w-3.5" />
@@ -310,6 +337,9 @@ function AppContent() {
         categories={data.categories}
         cells={data.cells}
         onAdd={addCategory} onUpdate={updateCategory} onDelete={deleteCategory}
+        trashedCategories={store.trashCategories}
+        onRestore={(id) => { restoreCategory(id); toast.success('Kategoria przywrócona'); }}
+        onPermanentDelete={(id) => { permanentlyDeleteCategory(id); toast.success('Kategoria usunięta na stałe'); }}
         onResetCell={(catId, mi) => setStatus(catId, mi, 'unpaid')}
         onClearAll={clearAllCells}
         onSetNote={setNote}
@@ -318,6 +348,29 @@ function AppContent() {
         onExport={handleExport} onImport={handleImport}
         onExportCsv={handleExportCsv} onExportExcel={handleExportExcel} />
       <PdfExportDialog open={pdfOpen} onOpenChange={setPdfOpen} data={data} />
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Historia zmian</DialogTitle>
+            <DialogDescription>Ostatnie akcje w aplikacji. Przycisk „Cofnij” przywraca poprzedni stan.</DialogDescription>
+          </DialogHeader>
+          <div className="category-scroll overflow-y-auto space-y-1.5 pr-1 py-1">
+            {history.length === 0 ? (
+              <p className="text-sm text-muted-foreground rounded-xl border border-dashed border-border p-6 text-center">Brak zapisanej historii zmian.</p>
+            ) : history.map(item => (
+              <div key={item.id} className="rounded-xl border border-border bg-muted/25 px-3 py-2">
+                <p className="text-sm font-medium text-foreground">{item.label}</p>
+                <p className="text-[11px] text-muted-foreground">{new Date(item.at).toLocaleString('pl-PL')}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between gap-2 border-t border-border pt-3">
+            <Button variant="outline" size="sm" disabled={!canUndo} onClick={() => { undoLastChange(); toast.success('Cofnięto ostatnią zmianę'); }}>Cofnij ostatnią</Button>
+            <Button variant="ghost" size="sm" onClick={clearHistoryLog}>Wyczyść listę</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Toaster richColors />
       <InstallPrompt />
