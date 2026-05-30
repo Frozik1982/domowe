@@ -87,7 +87,7 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
   const { data, getStatus, setStatus, copyPreviousMonth, toggleMonthHidden, hidePastMonths, showAllMonths, setAutoHidePastMonths, updateCategory } = store;
   const [hover, setHover] = useState<{ row: number; col: string } | null>(null);
   const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
-  const [renaming, setRenaming] = useState<{ id: string; original: string; value: string } | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; original: string; value: string; rect: DOMRect } | null>(null);
 
   const cats = useMemo(() => [...data.categories].sort((a, b) => `${a.group || 'Bez grupy'}:${a.name}`.localeCompare(`${b.group || 'Bez grupy'}:${b.name}`, 'pl')), [data.categories]);
   const currentMonth = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
@@ -109,9 +109,10 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
     setMenu({ cat, mi, status, rect: e.currentTarget.getBoundingClientRect() });
   }
 
-  function startRenameCategory(cat: Category) {
+  function startRenameCategory(e: React.MouseEvent<HTMLElement>, cat: Category) {
     if (!updateCategory) return;
-    setRenaming({ id: cat.id, original: cat.name, value: cat.name });
+    e.stopPropagation();
+    setRenaming({ id: cat.id, original: cat.name, value: cat.name, rect: e.currentTarget.getBoundingClientRect() });
   }
 
   function cancelRenameCategory() {
@@ -203,62 +204,22 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                     style={cat.color ? { borderTop: `3px solid ${cat.color}` } : {}}
                     className={`relative overflow-visible bg-muted/95 backdrop-blur-sm border-b border-l border-border py-3 px-2 text-center transition-colors ${isHovCol ? 'bg-primary/10 header-col-hover' : ''} print:bg-gray-100`}
                   >
-                    {renaming?.id === cat.id ? (
-                      <div className="relative h-8 print:hidden">
-                        <div
-                          className="absolute left-1/2 top-1/2 z-50 flex w-[230px] -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-xl border border-primary/35 bg-popover/95 p-1 shadow-xl backdrop-blur"
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            autoFocus
-                            value={renaming.value}
-                            onFocus={(e) => e.currentTarget.select()}
-                            onChange={(e) => setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r)}
-                            onKeyDown={(e) => {
-                              e.stopPropagation();
-                              if (e.key === 'Enter') saveRenameCategory();
-                              if (e.key === 'Escape') cancelRenameCategory();
-                            }}
-                            className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 text-left text-xs font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25"
-                            placeholder="Nazwa kategorii"
-                            aria-label={`Nowa nazwa kategorii ${cat.name}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={saveRenameCategory}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                            title="Zapisz nazwę"
-                            aria-label="Zapisz nazwę"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelRenameCategory}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Anuluj zmianę"
-                            aria-label="Anuluj zmianę"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); startRenameCategory(cat); }}
-                        className="mx-auto min-w-0 max-w-full text-[11px] font-semibold text-foreground leading-tight flex items-center justify-center gap-1 truncate rounded-md px-1 py-0.5 hover:bg-primary/10 hover:text-primary transition-colors group/name print:pointer-events-none"
-                        title={`Kliknij, żeby szybko zmienić nazwę: ${cat.name}`}
-                      >
-                        {cat.color && (
-                          <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                        )}
-                        <span className="truncate">{cat.name}</span>
-                        {updateCategory && <Pencil className="h-3 w-3 opacity-0 group-hover/name:opacity-60 shrink-0 transition-opacity print:hidden" />}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => startRenameCategory(e, cat)}
+                      className={`mx-auto min-w-0 max-w-full text-[11px] font-semibold leading-tight flex items-center justify-center gap-1 truncate rounded-md px-1 py-0.5 transition-colors group/name print:pointer-events-none ${
+                        renaming?.id === cat.id
+                          ? 'bg-primary/15 text-primary ring-1 ring-primary/35'
+                          : 'text-foreground hover:bg-primary/10 hover:text-primary'
+                      }`}
+                      title={`Kliknij, żeby szybko zmienić nazwę: ${cat.name}`}
+                    >
+                      {cat.color && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                      )}
+                      <span className="truncate">{cat.name}</span>
+                      {updateCategory && <Pencil className="h-3 w-3 opacity-0 group-hover/name:opacity-60 shrink-0 transition-opacity print:hidden" />}
+                    </button>
                     {cat.group && (
                       <span className="text-[8px] text-primary/80 block mt-0.5 truncate">{cat.group}</span>
                     )}
@@ -425,6 +386,53 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
 
         </table>
       </div>
+      {renaming && (
+        <div
+          className="fixed z-[9999] w-[280px] rounded-2xl border border-primary/35 bg-popover/98 p-2 shadow-2xl backdrop-blur print:hidden"
+          style={{
+            left: Math.min(Math.max(8, renaming.rect.left + renaming.rect.width / 2 - 140), window.innerWidth - 288),
+            top: Math.max(8, renaming.rect.top - 56),
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              value={renaming.value}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') saveRenameCategory();
+                if (e.key === 'Escape') cancelRenameCategory();
+              }}
+              className="h-9 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-left text-sm font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25"
+              placeholder="Nazwa kategorii"
+              aria-label="Nowa nazwa kategorii"
+            />
+            <button
+              type="button"
+              onClick={saveRenameCategory}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+              title="Zapisz nazwę"
+              aria-label="Zapisz nazwę"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={cancelRenameCategory}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Anuluj zmianę"
+              aria-label="Anuluj zmianę"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
       {menu && (
         <CellEditPopover
           catName={menu.cat.name}
