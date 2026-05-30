@@ -25,6 +25,12 @@ export interface StoreData {
   year: number;
   categories: Category[];
   cells: CellData[];
+  /** Months hidden in the main table (0 = Maj, 11 = Kwiecień) */
+  hiddenMonths?: number[];
+  /** Past months manually restored by the user even when auto-hide is enabled */
+  visiblePastMonths?: number[];
+  /** Auto-hide months that are before the current fiscal month */
+  autoHidePastMonths?: boolean;
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -44,6 +50,19 @@ const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 const STORAGE_KEY = 'expense-tracker-v1';
+
+function getCurrentMonthIndexForYear(year: number): number | null {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  if (y === year && m >= 4) return m - 4;
+  if (y === year + 1 && m <= 3) return m + 8;
+  return null;
+}
+
+function normalizeMonthList(values: number[] | undefined): number[] {
+  return Array.from(new Set((values ?? []).filter(v => Number.isInteger(v) && v >= 0 && v < 12))).sort((a, b) => a - b);
+}
 
 function getNextStatus(current: CellStatus, assignedTo: AssignedTo): CellStatus {
   if (assignedTo === 'M') {
@@ -66,7 +85,7 @@ function getInitialData(): StoreData {
   } catch { /* ignore */ }
   const now = new Date();
   const year = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1;
-  return { year, categories: DEFAULT_CATEGORIES, cells: [] };
+  return { year, categories: DEFAULT_CATEGORIES, cells: [], hiddenMonths: [], visiblePastMonths: [], autoHidePastMonths: true };
 }
 
 export function useExpenseStore() {
@@ -77,6 +96,30 @@ export function useExpenseStore() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data]);
+
+  // Auto-hide months that have already passed in the selected fiscal year.
+  // Manual "show" choices are kept in visiblePastMonths.
+  useEffect(() => {
+    setData(prev => {
+      if (prev.autoHidePastMonths === false) return prev;
+      const currentMonth = getCurrentMonthIndexForYear(prev.year);
+      if (currentMonth === null || currentMonth <= 0) return prev;
+
+      const hidden = new Set(normalizeMonthList(prev.hiddenMonths));
+      const visiblePast = new Set(normalizeMonthList(prev.visiblePastMonths));
+      let changed = false;
+
+      for (let i = 0; i < currentMonth; i += 1) {
+        if (!visiblePast.has(i) && !hidden.has(i)) {
+          hidden.add(i);
+          changed = true;
+        }
+      }
+
+      if (!changed) return prev;
+      return { ...prev, hiddenMonths: Array.from(hidden).sort((a, b) => a - b) };
+    });
+  }, [data.year]);
 
   // ── Hooks 3–8: Callbacks (exactly 6 — count is stable, do not add/remove) ──
   const getStatus = useCallback(
@@ -177,6 +220,59 @@ export function useExpenseStore() {
     });
   }
 
+
+
+  function toggleMonthHidden(monthIndex: number, hidden?: boolean) {
+    if (monthIndex < 0 || monthIndex > 11) return;
+    setData(prev => {
+      const hiddenMonths = new Set(normalizeMonthList(prev.hiddenMonths));
+      const visiblePastMonths = new Set(normalizeMonthList(prev.visiblePastMonths));
+      const shouldHide = hidden ?? !hiddenMonths.has(monthIndex);
+
+      if (shouldHide) {
+        hiddenMonths.add(monthIndex);
+        visiblePastMonths.delete(monthIndex);
+      } else {
+        hiddenMonths.delete(monthIndex);
+        visiblePastMonths.add(monthIndex);
+      }
+
+      return {
+        ...prev,
+        hiddenMonths: Array.from(hiddenMonths).sort((a, b) => a - b),
+        visiblePastMonths: Array.from(visiblePastMonths).sort((a, b) => a - b),
+      };
+    });
+  }
+
+  function hidePastMonths() {
+    setData(prev => {
+      const currentMonth = getCurrentMonthIndexForYear(prev.year);
+      if (currentMonth === null || currentMonth <= 0) return prev;
+      const hiddenMonths = new Set(normalizeMonthList(prev.hiddenMonths));
+      for (let i = 0; i < currentMonth; i += 1) hiddenMonths.add(i);
+      return {
+        ...prev,
+        hiddenMonths: Array.from(hiddenMonths).sort((a, b) => a - b),
+        visiblePastMonths: [],
+        autoHidePastMonths: true,
+      };
+    });
+  }
+
+  function showAllMonths() {
+    setData(prev => ({
+      ...prev,
+      hiddenMonths: [],
+      visiblePastMonths: Array.from({ length: 12 }, (_, i) => i),
+    }));
+  }
+
+  function setAutoHidePastMonths(enabled: boolean) {
+    setData(prev => ({ ...prev, autoHidePastMonths: enabled }));
+  }
+
+
   return {
     data,
     getStatus,
@@ -190,5 +286,9 @@ export function useExpenseStore() {
     clearAllCells,
     getNote,
     setNote,
+    toggleMonthHidden,
+    hidePastMonths,
+    showAllMonths,
+    setAutoHidePastMonths,
   };
 }
