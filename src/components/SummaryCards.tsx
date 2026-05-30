@@ -16,6 +16,7 @@ function getCurrentMonthIndex(year: number): number | null {
 
 const MONTHS_SHORT = ['Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru','Sty','Lut','Mar','Kwi'];
 const PAID = new Set(['paid-M','paid-J','paid-MJ']);
+const money = (v: number) => `${v.toLocaleString('pl-PL')} zł`;
 
 function computeYear(data: StoreData) {
   let mPaid = 0, mTotal = 0, mPaidAmt = 0, mTotalAmt = 0;
@@ -98,16 +99,15 @@ function YearCard({ label, paid, total, paidAmt, totalAmt, hasAmounts, colorVar,
 }) {
   const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
   const remaining = total - paid;
+  const remainingAmt = Math.max(0, totalAmt - paidAmt);
   const isDone = remaining === 0 && total > 0;
   const badgeClass = label === 'M' ? 'badge-m' : 'badge-j';
 
   return (
-    <div className="rounded-2xl border border-border bg-card flex-1 min-w-[200px] flex items-center gap-4 shadow-sm overflow-hidden relative">
-      {/* Left accent bar */}
+    <div className="rounded-2xl border border-border bg-card flex-1 min-w-[260px] flex items-center gap-4 shadow-sm overflow-hidden relative">
       <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `hsl(var(${accentCss}))` }} />
 
       <div className="pl-5 pr-4 py-4 flex items-center gap-4 w-full">
-        {/* Ring */}
         <div className="relative shrink-0">
           <ProgressRing pct={pct} colorVar={colorVar} />
           <div className="absolute inset-0 flex items-center justify-center">
@@ -115,29 +115,41 @@ function YearCard({ label, paid, total, paidAmt, totalAmt, hasAmounts, colorVar,
           </div>
         </div>
 
-        {/* Stats */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-end gap-1.5">
-            <span className="text-3xl font-extrabold leading-none text-foreground">{pct}%</span>
-            {isDone && <span className="text-sm mb-0.5">🎉</span>}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            <span className="font-semibold text-foreground">{paid}/{total}</span> opłacone w roku
-          </div>
-          {hasAmounts && totalAmt > 0 && (
-            <div className="text-xs text-muted-foreground">
-              {paidAmt.toLocaleString('pl-PL')} / {totalAmt.toLocaleString('pl-PL')} zł
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-end gap-1.5">
+                <span className="text-3xl font-extrabold leading-none text-foreground">{pct}%</span>
+                {isDone && <span className="text-sm mb-0.5">✓</span>}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                <span className="font-semibold text-foreground">{paid}/{total}</span> opłacone w roku
+              </div>
             </div>
-          )}
-          {remaining > 0 && (
+            <TrendingUp className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-1" />
+          </div>
+
+          {hasAmounts && totalAmt > 0 ? (
+            <div className="grid grid-cols-3 gap-1.5 mt-3">
+              <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-1.5">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Opłacone</div>
+                <div className="text-xs font-bold text-green-600 dark:text-green-400">{money(paidAmt)}</div>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-1.5">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Pozostało</div>
+                <div className="text-xs font-bold text-destructive">{money(remainingAmt)}</div>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-1.5">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Razem</div>
+                <div className="text-xs font-bold text-foreground">{money(totalAmt)}</div>
+              </div>
+            </div>
+          ) : remaining > 0 ? (
             <div className="text-xs font-semibold text-destructive mt-1">
               {remaining} pozostałe
             </div>
-          )}
+          ) : null}
         </div>
-
-        {/* Mini trend icon */}
-        <TrendingUp className="h-4 w-4 text-muted-foreground/30 shrink-0 self-start mt-1" />
       </div>
     </div>
   );

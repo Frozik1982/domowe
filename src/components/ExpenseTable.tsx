@@ -29,8 +29,8 @@ function smartPaidStatus(filter: FilterType): CellStatus {
   return 'paid-MJ';
 }
 
-function cellClass(status: CellStatus, isDimmed: boolean, editMode: boolean, isViewOnly: boolean): string {
-  const parts = ['border-l', 'border-border/30', 'py-2', 'text-center', 'select-none'];
+function cellClass(status: CellStatus, isColHover: boolean, isExactHover: boolean, editMode: boolean, isViewOnly: boolean): string {
+  const parts = ['expense-cell', 'border-l', 'border-border/30', 'py-2', 'text-center', 'select-none', 'relative'];
 
   const canErase = editMode && status !== 'unpaid';
   const canWrite = !editMode && !isViewOnly && status === 'unpaid';
@@ -49,7 +49,8 @@ function cellClass(status: CellStatus, isDimmed: boolean, editMode: boolean, isV
     parts.push(canErase ? 'st-paid-click cursor-pointer' : 'cursor-default');
   }
 
-  if (isDimmed) parts.push('col-dim');
+  if (isColHover) parts.push('col-hover');
+  if (isExactHover) parts.push('cell-exact-hover');
   return parts.join(' ');
 }
 
@@ -91,7 +92,7 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
           </colgroup>
 
           {/* ── Header ── */}
-          <thead className="sticky top-0 z-20">
+          <thead className="sticky top-0 z-30 table-sticky-head">
             <tr>
               <th className="sticky left-0 z-30 bg-muted/95 backdrop-blur-sm text-left py-3 px-3 text-xs font-semibold text-muted-foreground border-b border-r border-border whitespace-nowrap print:bg-gray-100">
                 Miesiąc
@@ -103,7 +104,7 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
                     onMouseEnter={() => setHover(h => ({ row: h?.row ?? -1, col: cat.id }))}
                     onMouseLeave={() => setHover(null)}
                     style={cat.color ? { borderTop: `3px solid ${cat.color}` } : {}}
-                    className={`bg-muted/95 backdrop-blur-sm border-b border-l border-border py-3 px-2 text-center transition-colors ${isHovCol ? 'bg-primary/5' : ''} print:bg-gray-100`}
+                    className={`bg-muted/95 backdrop-blur-sm border-b border-l border-border py-3 px-2 text-center transition-colors ${isHovCol ? 'bg-primary/10 header-col-hover' : ''} print:bg-gray-100`}
                   >
                     <span className="text-[11px] font-semibold text-foreground leading-tight flex items-center justify-center gap-1 truncate" title={cat.name}>
                       {cat.color && (
@@ -160,7 +161,7 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
                     isCurrent
                       ? 'bg-row-current'
                       : isHovRow
-                      ? 'bg-muted/25'
+                      ? 'row-hover'
                       : isOdd
                       ? 'bg-muted/10'
                       : ''
@@ -200,7 +201,7 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
                     const isExact  = isColHov && hover?.row === mi;
                     return (
                       <td key={cat.id}
-                        className={cellClass(status, isColHov && !isExact, editMode, isViewOnly)}
+                        className={cellClass(status, isColHov, isExact, editMode, isViewOnly)}
                         onClick={e => handleCellClick(e, cat, mi, status)}
                         onMouseEnter={() => setHover({ row: mi, col: cat.id })}
                         onMouseLeave={() => setHover(null)}
