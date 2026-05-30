@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronDown, ChevronUp, RotateCcw, Search, ShieldAlert } from 'lucide-react';
 import { type Category, type CellData, type CellStatus, type AssignedTo } from '@/hooks/useExpenseStore';
 import CategoryDialog from '@/components/CategoryDialog';
 import { toast } from 'sonner';
@@ -40,8 +40,16 @@ export default function ManageCategoriesDialog({
   const [expandedCatId, setExpandedCatId]   = useState<string | null>(null);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [resetInput, setResetInput]         = useState('');
+  const [searchQuery, setSearchQuery]       = useState('');
 
   const deleteName = categories.find(c => c.id === deleteCatId)?.name ?? '';
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredCategories = normalizedSearch
+    ? categories.filter(cat => {
+        const searchText = [cat.name, cat.assignedTo, cat.amount ? `${cat.amount}` : '', cat.dueDay ? `${cat.dueDay}` : ''].join(' ').toLowerCase();
+        return searchText.includes(normalizedSearch);
+      })
+    : categories;
 
   function getCellData(categoryId: string, monthIndex: number) {
     return cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex);
@@ -71,21 +79,44 @@ export default function ManageCategoriesDialog({
                 Rozwiń kategorię, aby zresetować miesiące lub dodać notatki do płatności.
               </DialogDescription>
             </DialogHeader>
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Szukaj kategorii..."
+                className="h-9 rounded-xl bg-muted/40 pl-9 text-sm"
+              />
+            </div>
           </div>
 
-          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
+          <div className="category-scroll overflow-y-auto flex-1 px-4 py-3 space-y-2">
             {categories.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <p className="text-3xl mb-2">📭</p>
                 <p className="text-sm font-medium">Brak kategorii</p>
               </div>
-            ) : categories.map(cat => {
+            ) : filteredCategories.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                Brak kategorii pasujących do wyszukiwania.
+              </div>
+            ) : filteredCategories.map(cat => {
               const isExpanded = expandedCatId === cat.id;
               return (
                 <div key={cat.id} className="rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="flex items-center gap-2 p-3">
-                    <button className="flex-1 flex items-center gap-2 text-left min-w-0"
-                      onClick={() => setExpandedCatId(isExpanded ? null : cat.id)}>
+                  <div
+                    className="flex cursor-pointer items-center gap-2 p-3 transition-colors hover:bg-muted/35"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setExpandedCatId(isExpanded ? null : cat.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setExpandedCatId(isExpanded ? null : cat.id);
+                      }
+                    }}
+                  >
+                    <div className="flex-1 flex items-center gap-2 text-left min-w-0">
                       {isExpanded ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                   : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                       {cat.color && (
@@ -95,15 +126,27 @@ export default function ManageCategoriesDialog({
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${BADGE[cat.assignedTo]}`}>{cat.assignedTo}</span>
                       {cat.dueDay && <span className="text-[10px] text-muted-foreground shrink-0">📅 {cat.dueDay}.</span>}
                       {cat.amount > 0 && <span className="text-xs text-muted-foreground shrink-0">{cat.amount.toLocaleString('pl-PL')} zł</span>}
-                    </button>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="outline" size="sm" className="h-7 px-2.5 gap-1 text-xs" onClick={() => setEditCat(cat)}>
-                        <Pencil className="h-3 w-3" /> Edytuj
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={`Edytuj ${cat.name}`}
+                        aria-label={`Edytuj ${cat.name}`}
+                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                        onClick={() => setEditCat(cat)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="outline" size="sm"
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-                        onClick={() => setDeleteCatId(cat.id)}>
-                        <Trash2 className="h-3 w-3" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={`Usuń ${cat.name}`}
+                        aria-label={`Usuń ${cat.name}`}
+                        className="h-8 w-8 p-0 rounded-lg text-destructive/65 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteCatId(cat.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -162,14 +205,22 @@ export default function ManageCategoriesDialog({
           </div>
 
           <div className="px-4 py-4 border-t border-border bg-muted/20 space-y-2">
-            <Button variant="outline"
-              className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 text-sm"
-              onClick={() => setClearDialogOpen(true)}>
-              <Trash2 className="h-4 w-4" /> Wyczyść całą historię płatności
-            </Button>
             <Button className="w-full gap-2" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" /> Dodaj nową kategorię
             </Button>
+            <details className="group rounded-xl border border-border/60 bg-background/35 px-3 py-2">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+                <span className="flex items-center gap-2"><ShieldAlert className="h-3.5 w-3.5" /> Zaawansowane / niebezpieczne akcje</span>
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+              </summary>
+              <Button
+                variant="ghost"
+                className="mt-2 w-full gap-2 justify-start text-destructive/80 hover:text-destructive hover:bg-destructive/10 text-sm"
+                onClick={() => setClearDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" /> Wyczyść całą historię płatności
+              </Button>
+            </details>
           </div>
         </DialogContent>
       </Dialog>

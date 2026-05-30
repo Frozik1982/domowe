@@ -274,3 +274,24 @@
   tfoot { display: table-footer-group; }
   tr { page-break-inside: avoid; }
 }
+
+/* Ciemny, dyskretny scrollbar w panelu kategorii */
+.category-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.42) hsl(var(--muted) / 0.38);
+}
+.category-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.category-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.38);
+  border-radius: 999px;
+}
+.category-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.42);
+  border: 2px solid hsl(var(--muted) / 0.38);
+  border-radius: 999px;
+}
+.category-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.65);
+}
