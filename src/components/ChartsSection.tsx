@@ -5,13 +5,13 @@ import {
 } from 'recharts';
 import { type StoreData } from '@/hooks/useExpenseStore';
 
-interface Props { data: StoreData }
+interface Props { data: StoreData; hideAmounts?: boolean }
 
 const MONTHS_SHORT = ['Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru','Sty','Lut','Mar','Kwi'];
 const PIE_COLORS = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#84cc16','#a855f7','#0ea5e9','#64748b'];
 const PAID = new Set(['paid-M','paid-J','paid-MJ']);
 
-export default function ChartsSection({ data }: Props) {
+export default function ChartsSection({ data, hideAmounts = false }: Props) {
   const pieData = useMemo(() =>
     data.categories
       .filter(c => c.amount > 0)
@@ -53,7 +53,7 @@ export default function ChartsSection({ data }: Props) {
       {/* ── Pie: expense structure ── */}
       <div className="rounded-xl border border-border bg-card shadow-sm p-5">
         <h2 className="text-sm font-semibold text-foreground mb-1">📊 Struktura wydatków miesięcznych</h2>
-        <p className="text-xs text-muted-foreground mb-4">Łącznie: {total.toLocaleString('pl-PL')} zł/miesiąc</p>
+        <p className="text-xs text-muted-foreground mb-4">Łącznie: {hideAmounts ? '•••' : total.toLocaleString('pl-PL')} zł/miesiąc</p>
         <div className="flex flex-col sm:flex-row gap-6 items-center">
           <div className="w-full sm:w-56 shrink-0" style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -63,7 +63,7 @@ export default function ChartsSection({ data }: Props) {
                   {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} strokeWidth={0} />)}
                 </Pie>
                 <Tooltip
-                  formatter={(val: number) => [`${val} zł`, '']}
+                  formatter={(val: number) => [hideAmounts ? '••• zł' : `${val} zł`, '']}
                   contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }}
                   itemStyle={{ color: 'hsl(var(--foreground))' }}
                 />
@@ -78,7 +78,7 @@ export default function ChartsSection({ data }: Props) {
                   <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                   <span className="flex-1 truncate text-foreground font-medium">{item.name}</span>
                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">{item.who}</span>
-                  <span className="w-14 text-right text-muted-foreground shrink-0">{item.value} zł</span>
+                  <span className="w-14 text-right text-muted-foreground shrink-0">{hideAmounts ? '•••' : item.value} zł</span>
                   <div className="w-16 bg-muted rounded-full h-1 shrink-0 overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                   </div>
@@ -103,7 +103,7 @@ export default function ChartsSection({ data }: Props) {
               <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
               <Tooltip
                 formatter={(val: number, name: string) => [
-                  `${val.toLocaleString('pl-PL')} zł`,
+                  hideAmounts ? '••• zł' : `${val.toLocaleString('pl-PL')} zł`,
                   name === 'paid' ? 'Opłacone' : 'Pozostałe',
                 ]}
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }}

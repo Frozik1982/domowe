@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, ArrowRightLeft, TrendingUp, CreditCard } f
 
 const PAID_SET = new Set<CellStatus>(['paid-M', 'paid-J', 'paid-MJ']);
 
-interface Props { data: StoreData }
+interface Props { data: StoreData; hideAmounts?: boolean }
 
 function getCurrentMonthIndex(year: number): number | null {
   const now = new Date();
@@ -17,7 +17,7 @@ function getCurrentMonthIndex(year: number): number | null {
 
 const MONTHS_SHORT = ['Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru','Sty','Lut','Mar','Kwi'];
 const PAID = new Set(['paid-M','paid-J','paid-MJ']);
-const money = (v: number) => `${v.toLocaleString('pl-PL')} zł`;
+const money = (v: number, hide = false) => hide ? '••• zł' : `${v.toLocaleString('pl-PL')} zł`;
 
 function computeYear(data: StoreData) {
   let mPaid = 0, mTotal = 0, mPaidAmt = 0, mTotalAmt = 0;
@@ -94,9 +94,9 @@ function ProgressRing({ pct, size = 68, sw = 5.5, colorVar }: {
   );
 }
 
-function YearCard({ label, paid, total, paidAmt, totalAmt, hasAmounts, colorVar, accentCss }: {
+function YearCard({ label, paid, total, paidAmt, totalAmt, hasAmounts, colorVar, accentCss, hideAmounts }: {
   label: string; paid: number; total: number; paidAmt: number; totalAmt: number;
-  hasAmounts: boolean; colorVar: string; accentCss: string;
+  hasAmounts: boolean; colorVar: string; accentCss: string; hideAmounts?: boolean;
 }) {
   const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
   const remaining = total - paid;
@@ -134,15 +134,15 @@ function YearCard({ label, paid, total, paidAmt, totalAmt, hasAmounts, colorVar,
             <div className="grid grid-cols-3 gap-1.5 mt-3">
               <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-1.5">
                 <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Opłacone</div>
-                <div className="text-xs font-bold text-green-600 dark:text-green-400">{money(paidAmt)}</div>
+                <div className="text-xs font-bold text-green-600 dark:text-green-400">{money(paidAmt, hideAmounts)}</div>
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-1.5">
                 <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Pozostało</div>
-                <div className="text-xs font-bold text-destructive">{money(remainingAmt)}</div>
+                <div className="text-xs font-bold text-destructive">{money(remainingAmt, hideAmounts)}</div>
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-1.5">
                 <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Razem</div>
-                <div className="text-xs font-bold text-foreground">{money(totalAmt)}</div>
+                <div className="text-xs font-bold text-foreground">{money(totalAmt, hideAmounts)}</div>
               </div>
             </div>
           ) : remaining > 0 ? (
@@ -156,7 +156,7 @@ function YearCard({ label, paid, total, paidAmt, totalAmt, hasAmounts, colorVar,
   );
 }
 
-function InstallmentCard({ data }: { data: StoreData }) {
+function InstallmentCard({ data, hideAmounts = false }: { data: StoreData; hideAmounts?: boolean }) {
   const cats = data.categories.filter(c => c.installmentMonths && c.installmentMonths > 0);
   if (cats.length === 0) return null;
 
@@ -210,14 +210,14 @@ function InstallmentCard({ data }: { data: StoreData }) {
                       : `${left} ${left === 1 ? 'rata' : left < 5 ? 'raty' : 'rat'} pozostało`}
                     {!done && cat.amount > 0 && (
                       <span className="ml-1 font-medium text-foreground">
-                        · {leftAmt.toLocaleString('pl-PL')} zł
+                        · {(hideAmounts ? '•••' : leftAmt.toLocaleString('pl-PL'))} zł
                       </span>
                     )}
                   </span>
                   <span className="font-semibold">
                     {pct}%
                     {totalAmt > 0 && (
-                      <span className="font-normal ml-1">z {totalAmt.toLocaleString('pl-PL')} zł</span>
+                      <span className="font-normal ml-1">z {(hideAmounts ? '•••' : totalAmt.toLocaleString('pl-PL'))} zł</span>
                     )}
                   </span>
                 </div>
@@ -230,7 +230,7 @@ function InstallmentCard({ data }: { data: StoreData }) {
   );
 }
 
-export default function SummaryCards({ data }: Props) {
+export default function SummaryCards({ data, hideAmounts = false }: Props) {
   const { names } = usePayerNames();
   const year    = useMemo(() => computeYear(data), [data]);
   const mi      = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
@@ -246,12 +246,12 @@ export default function SummaryCards({ data }: Props) {
         <YearCard
           label={names.m} paid={year.mPaid} total={year.mTotal}
           paidAmt={year.mPaidAmt} totalAmt={year.mTotalAmt}
-          hasAmounts={hasAmounts} colorVar="--chart-1" accentCss="--chart-1"
+          hasAmounts={hasAmounts} colorVar="--chart-1" accentCss="--chart-1" hideAmounts={hideAmounts}
         />
         <YearCard
           label={names.j} paid={year.jPaid} total={year.jTotal}
           paidAmt={year.jPaidAmt} totalAmt={year.jTotalAmt}
-          hasAmounts={hasAmounts} colorVar="--chart-2" accentCss="--chart-2"
+          hasAmounts={hasAmounts} colorVar="--chart-2" accentCss="--chart-2" hideAmounts={hideAmounts}
         />
       </div>
 
@@ -269,9 +269,9 @@ export default function SummaryCards({ data }: Props) {
               ] as const).map(u => (
                 <span key={u.lbl} className="flex items-center gap-1.5 text-xs">
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${u.cls}`}>{u.lbl}</span>
-                  <span className="text-green-600 dark:text-green-400 font-medium">✓ {u.paid.toLocaleString('pl-PL')} zł</span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">✓ {(hideAmounts ? '•••' : u.paid.toLocaleString('pl-PL'))} zł</span>
                   {u.rem > 0 && (
-                    <span className="font-semibold text-destructive">· {u.rem.toLocaleString('pl-PL')} zł do zapłaty</span>
+                    <span className="font-semibold text-destructive">· {(hideAmounts ? '•••' : u.rem.toLocaleString('pl-PL'))} zł do zapłaty</span>
                   )}
                   {u.rem === 0 && u.due > 0 && (
                     <span className="font-semibold text-green-600 dark:text-green-400">· gotowe 🎉</span>
@@ -297,14 +297,14 @@ export default function SummaryCards({ data }: Props) {
               <span className="badge-j text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.j}</span>
               <span className="text-muted-foreground">dopłaca</span>
               <span className="badge-m text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.m}</span>
-              <span className="text-foreground font-bold ml-0.5">{settle.net.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł</span>
+              <span className="text-foreground font-bold ml-0.5">{(hideAmounts ? '•••' : settle.net.toLocaleString('pl-PL', { maximumFractionDigits: 2 }))} zł</span>
             </span>
           ) : (
             <span className="font-semibold flex items-center gap-1">
               <span className="badge-m text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.m}</span>
               <span className="text-muted-foreground">dopłaca</span>
               <span className="badge-j text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.j}</span>
-              <span className="text-foreground font-bold ml-0.5">{Math.abs(settle.net).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł</span>
+              <span className="text-foreground font-bold ml-0.5">{(hideAmounts ? '•••' : Math.abs(settle.net).toLocaleString('pl-PL', { maximumFractionDigits: 2 }))} zł</span>
             </span>
           )}
           <span className="text-muted-foreground/50 ml-auto text-[10px] hidden sm:block">na podstawie kategorii M+J</span>
@@ -312,7 +312,7 @@ export default function SummaryCards({ data }: Props) {
       )}
 
       {/* Installments */}
-      <InstallmentCard data={data} />
+      <InstallmentCard data={data} hideAmounts={hideAmounts} />
 
       {/* Due date alerts */}
       {alerts.length > 0 && (

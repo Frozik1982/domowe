@@ -91,16 +91,35 @@ function getInitialData(): StoreData {
 export function useExpenseStore() {
   // ── Hook 1: State ──────────────────────────────────────────────────────────
   const [data, setData] = useState<StoreData>(getInitialData);
+  const [undoStack, setUndoStack] = useState<StoreData[]>([]);
 
   // ── Hook 2: Effect ─────────────────────────────────────────────────────────
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data]);
 
+  function commitData(updater: (prev: StoreData) => StoreData) {
+    setData(prev => {
+      const next = updater(prev);
+      if (next !== prev) {
+        setUndoStack(stack => [prev, ...stack].slice(0, 25));
+      }
+      return next;
+    });
+  }
+
+  function undoLastChange() {
+    setUndoStack(stack => {
+      const [last, ...rest] = stack;
+      if (last) setData(last);
+      return rest;
+    });
+  }
+
   // Auto-hide months that have already passed in the selected fiscal year.
   // Manual "show" choices are kept in visiblePastMonths.
   useEffect(() => {
-    setData(prev => {
+    commitData(prev => {
       if (prev.autoHidePastMonths === false) return prev;
       const currentMonth = getCurrentMonthIndexForYear(prev.year);
       if (currentMonth === null || currentMonth <= 0) return prev;
@@ -130,7 +149,7 @@ export function useExpenseStore() {
 
   const cycleStatus = useCallback(
     (categoryId: string, monthIndex: number, assignedTo: AssignedTo) => {
-      setData(prev => {
+      commitData(prev => {
         const current =
           prev.cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex)?.status ?? 'unpaid';
         const next = getNextStatus(current, assignedTo);
@@ -145,7 +164,7 @@ export function useExpenseStore() {
 
   const copyPreviousMonth = useCallback((monthIndex: number) => {
     if (monthIndex === 0) return;
-    setData(prev => {
+    commitData(prev => {
       const prevCells  = prev.cells.filter(c => c.monthIndex === monthIndex - 1);
       const otherCells = prev.cells.filter(c => c.monthIndex !== monthIndex);
       return { ...prev, cells: [...otherCells, ...prevCells.map(c => ({ ...c, monthIndex }))] };
@@ -154,7 +173,7 @@ export function useExpenseStore() {
 
   const addCategory = useCallback(
     (cat: Omit<Category, 'id'>) =>
-      setData(prev => ({
+      commitData(prev => ({
         ...prev,
         categories: [...prev.categories, { ...cat, id: `cat-${Date.now()}` }],
       })),
@@ -163,7 +182,7 @@ export function useExpenseStore() {
 
   const updateCategory = useCallback(
     (id: string, updates: Partial<Omit<Category, 'id'>>) =>
-      setData(prev => ({
+      commitData(prev => ({
         ...prev,
         categories: prev.categories.map(c => (c.id === id ? { ...c, ...updates } : c)),
       })),
@@ -171,7 +190,7 @@ export function useExpenseStore() {
   );
 
   const deleteCategory = useCallback((id: string) =>
-    setData(prev => ({
+    commitData(prev => ({
       ...prev,
       categories: prev.categories.filter(c => c.id !== id),
       cells:      prev.cells.filter(c => c.categoryId !== id),
@@ -181,7 +200,7 @@ export function useExpenseStore() {
 
   /** Set status, preserving any existing note on the cell */
   function setStatus(categoryId: string, monthIndex: number, status: CellStatus) {
-    setData(prev => {
+    commitData(prev => {
       const existing = prev.cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex);
       const filtered = prev.cells.filter(c => !(c.categoryId === categoryId && c.monthIndex === monthIndex));
       if (status === 'unpaid') {
@@ -195,11 +214,11 @@ export function useExpenseStore() {
   }
 
   function setYear(year: number) {
-    setData(prev => ({ ...prev, year }));
+    commitData(prev => ({ ...prev, year }));
   }
 
   function clearAllCells() {
-    setData(prev => ({ ...prev, cells: [] }));
+    commitData(prev => ({ ...prev, cells: [] }));
   }
 
   function getNote(categoryId: string, monthIndex: number): string {
@@ -207,7 +226,7 @@ export function useExpenseStore() {
   }
 
   function setNote(categoryId: string, monthIndex: number, note: string) {
-    setData(prev => {
+    commitData(prev => {
       const existing = prev.cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex);
       const filtered = prev.cells.filter(c => !(c.categoryId === categoryId && c.monthIndex === monthIndex));
       if (existing) {
@@ -224,7 +243,7 @@ export function useExpenseStore() {
 
   function toggleMonthHidden(monthIndex: number, hidden?: boolean) {
     if (monthIndex < 0 || monthIndex > 11) return;
-    setData(prev => {
+    commitData(prev => {
       const hiddenMonths = new Set(normalizeMonthList(prev.hiddenMonths));
       const visiblePastMonths = new Set(normalizeMonthList(prev.visiblePastMonths));
       const shouldHide = hidden ?? !hiddenMonths.has(monthIndex);
@@ -246,7 +265,7 @@ export function useExpenseStore() {
   }
 
   function hidePastMonths() {
-    setData(prev => {
+    commitData(prev => {
       const currentMonth = getCurrentMonthIndexForYear(prev.year);
       if (currentMonth === null || currentMonth <= 0) return prev;
       const hiddenMonths = new Set(normalizeMonthList(prev.hiddenMonths));
@@ -261,7 +280,7 @@ export function useExpenseStore() {
   }
 
   function showAllMonths() {
-    setData(prev => ({
+    commitData(prev => ({
       ...prev,
       hiddenMonths: [],
       visiblePastMonths: Array.from({ length: 12 }, (_, i) => i),
@@ -269,7 +288,7 @@ export function useExpenseStore() {
   }
 
   function setAutoHidePastMonths(enabled: boolean) {
-    setData(prev => ({ ...prev, autoHidePastMonths: enabled }));
+    commitData(prev => ({ ...prev, autoHidePastMonths: enabled }));
   }
 
 
@@ -290,5 +309,7 @@ export function useExpenseStore() {
     hidePastMonths,
     showAllMonths,
     setAutoHidePastMonths,
+    undoLastChange,
+    canUndo: undoStack.length > 0,
   };
 }

@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react';
 import { type Category, type CellStatus, type AssignedTo } from '@/hooks/useExpenseStore';
 import { type FilterType } from '@/types';
 import { type TableStore } from '@/components/ExpenseTable';
-import { ChevronLeft, ChevronRight, Lock, Eye, Eraser } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Eye, Eraser, Search } from 'lucide-react';
 
 const MONTHS = ['Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień','Styczeń','Luty','Marzec','Kwiecień'];
 const PAID   = new Set<CellStatus>(['paid-M','paid-J','paid-MJ']);
 
-interface Props { store: TableStore; filter: FilterType; editMode: boolean; year: number }
+interface Props { store: TableStore; filter: FilterType; editMode: boolean; year: number; hideAmounts?: boolean }
 
 const BADGE_CLASS: Record<AssignedTo, string> = { 'M': 'badge-m', 'J': 'badge-j', 'M+J': 'badge-mj' };
 
@@ -27,7 +27,7 @@ function smartPaidStatus(filter: FilterType): CellStatus {
 }
 
 function statusBtnClass(status: CellStatus, editMode: boolean, isViewOnly: boolean): string {
-  const base = 'min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-semibold transition-all';
+  const base = 'min-w-[104px] py-2 px-2.5 rounded-xl text-[11px] font-semibold transition-all';
   const canErase = editMode && status !== 'unpaid';
   const canWrite = !editMode && !isViewOnly && status === 'unpaid';
   const clickable = canErase || canWrite;
@@ -47,12 +47,17 @@ function getCurrentMonthIdx(year: number): number {
   return 0;
 }
 
-export default function MobileMonthView({ store, filter, editMode, year }: Props) {
+export default function MobileMonthView({ store, filter, editMode, year, hideAmounts = false }: Props) {
   const [monthIdx, setMonthIdx] = useState(() => getCurrentMonthIdx(year));
+  const [query, setQuery] = useState('');
   const { data, getStatus, setStatus } = store;
 
   // ── Rule 1: always show ALL categories regardless of filter ──
-  const cats = useMemo(() => data.categories, [data.categories]);
+  const cats = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return data.categories;
+    return data.categories.filter(c => c.name.toLowerCase().includes(q));
+  }, [data.categories, query]);
 
   const monthYear = monthIdx <= 7 ? year : year + 1;
   const isCurrent = monthIdx === getCurrentMonthIdx(year);
@@ -110,6 +115,16 @@ export default function MobileMonthView({ store, filter, editMode, year }: Props
         </div>
       </div>
 
+      <div className="bg-card rounded-2xl border border-border shadow-sm px-3 py-2 flex items-center gap-2">
+        <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Szukaj rachunku..."
+          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </div>
+
       {/* Category list */}
       <div className="space-y-2">
         {cats.length === 0 ? (
@@ -121,16 +136,16 @@ export default function MobileMonthView({ store, filter, editMode, year }: Props
           const isPaid   = PAID.has(status);
           const showLock = isPaid && !editMode;
           return (
-            <div key={cat.id} className="bg-card rounded-2xl border border-border shadow-sm px-4 py-3 flex items-center gap-3">
+            <div key={cat.id} className="bg-card rounded-2xl border border-border shadow-sm px-3 py-2.5 flex items-center gap-2.5 active:scale-[0.99] transition-transform">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   {cat.color && (
                     <span className="inline-block w-3 h-3 rounded-full shrink-0 border border-border/30" style={{ backgroundColor: cat.color }} />
                   )}
-                  <span className="font-semibold text-sm text-foreground">{cat.name}</span>
+                  <span className="font-semibold text-sm text-foreground truncate">{cat.name}</span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${BADGE_CLASS[cat.assignedTo]}`}>{cat.assignedTo}</span>
                 </div>
-                {cat.amount > 0 && <span className="text-xs text-muted-foreground">{cat.amount.toLocaleString('pl-PL')} zł/mies.</span>}
+                {cat.amount > 0 && <span className="text-xs text-muted-foreground">{hideAmounts ? '••• zł/mies.' : `${cat.amount.toLocaleString('pl-PL')} zł/mies.`}</span>}
                 {cat.installmentMonths && (() => {
                   const paidN = data.cells.filter(c => c.categoryId === cat.id && PAID.has(c.status)).length;
                   const total = cat.installmentMonths;

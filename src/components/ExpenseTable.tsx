@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { type Category, type CellStatus, type AssignedTo, type CellData } from '@/hooks/useExpenseStore';
 import { type FilterType } from '@/types';
 import { Copy, Eye, EyeOff, Lock } from 'lucide-react';
+import CellEditPopover from '@/components/CellEditPopover';
 
 export interface TableStore {
   data: { year: number; categories: Category[]; cells: CellData[]; hiddenMonths?: number[]; autoHidePastMonths?: boolean }; 
@@ -13,12 +14,14 @@ export interface TableStore {
   hidePastMonths: () => void;
   showAllMonths: () => void;
   setAutoHidePastMonths: (enabled: boolean) => void;
+  setNote?: (categoryId: string, monthIndex: number, note: string) => void;
 }
 
 interface Props {
   store: TableStore;
   filter: FilterType;
   editMode: boolean;
+  hideAmounts?: boolean;
 }
 
 const MONTHS = ['Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień','Styczeń','Luty','Marzec','Kwiecień'];
@@ -79,9 +82,10 @@ function getCurrentMonthIndex(year: number): number | null {
 const MONTH_COL_W = 130;
 const CAT_COL_MIN = 80;
 
-export default function ExpenseTable({ store, filter, editMode }: Props) {
+export default function ExpenseTable({ store, filter, editMode, hideAmounts = false }: Props) {
   const { data, getStatus, setStatus, copyPreviousMonth, toggleMonthHidden, hidePastMonths, showAllMonths, setAutoHidePastMonths } = store;
   const [hover, setHover] = useState<{ row: number; col: string } | null>(null);
+  const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
 
   const cats = useMemo(() => data.categories, [data.categories]);
   const currentMonth = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
@@ -89,13 +93,18 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
   const visibleMonthIndexes = useMemo(() => MONTHS.map((_, i) => i).filter(i => !hiddenMonths.has(i)), [hiddenMonths]);
   const isViewOnly = filter === 'all' && !editMode;
 
-  function handleCellClick(_e: React.MouseEvent<HTMLTableCellElement>, cat: Category, mi: number, status: CellStatus) {
+  function handleCellClick(e: React.MouseEvent<HTMLTableCellElement>, cat: Category, mi: number, status: CellStatus) {
     if (editMode) {
       if (status !== 'unpaid') setStatus(cat.id, mi, 'unpaid');
       return;
     }
-    if (filter === 'all') return;
-    if (status === 'unpaid') setStatus(cat.id, mi, smartPaidStatus(filter));
+    // Fast mode: if M/J/M+J filter is selected, unpaid cells are marked immediately.
+    // Otherwise, open a compact menu with all options.
+    if (filter !== 'all' && status === 'unpaid') {
+      setStatus(cat.id, mi, smartPaidStatus(filter));
+      return;
+    }
+    setMenu({ cat, mi, status, rect: e.currentTarget.getBoundingClientRect() });
   }
 
   return (
@@ -174,7 +183,7 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
                     </span>
                     {cat.amount > 0 && (
                       <span className="text-[9px] text-muted-foreground block mt-0.5">
-                        {cat.amount.toLocaleString('pl-PL')} zł
+                        {hideAmounts ? '••• zł' : `${cat.amount.toLocaleString('pl-PL')} zł`}
                       </span>
                     )}
                     {cat.installmentMonths && (() => {
@@ -335,6 +344,17 @@ export default function ExpenseTable({ store, filter, editMode }: Props) {
 
         </table>
       </div>
+      {menu && (
+        <CellEditPopover
+          catName={menu.cat.name}
+          month={MONTHS[menu.mi]}
+          status={menu.status}
+          assignedTo={menu.cat.assignedTo}
+          anchorRect={menu.rect}
+          onClose={() => setMenu(null)}
+          onSet={(status) => setStatus(menu.cat.id, menu.mi, status)}
+        />
+      )}
     </div>
   );
 }

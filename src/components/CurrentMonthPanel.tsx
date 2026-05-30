@@ -15,8 +15,8 @@ function getCurrentMonthIndex(year: number): number | null {
   return null;
 }
 
-function money(v: number): string {
-  return `${v.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł`;
+function money(v: number, hide = false): string {
+  return hide ? '••• zł' : `${v.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł`;
 }
 
 function getStatus(data: StoreData, categoryId: string, monthIndex: number): CellStatus {
@@ -47,9 +47,9 @@ function statusClass(status: CellStatus): string {
   return 'bg-orange-500/10 text-orange-400 border border-orange-500/20';
 }
 
-interface Props { data: StoreData }
+interface Props { data: StoreData; hideAmounts?: boolean }
 
-export default function CurrentMonthPanel({ data }: Props) {
+export default function CurrentMonthPanel({ data, hideAmounts = false }: Props) {
   const [showDetails, setShowDetails] = useState(false);
   const { names } = usePayerNames();
   const currentMonthIndex = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
@@ -179,24 +179,24 @@ export default function CurrentMonthPanel({ data }: Props) {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
             <div className="rounded-xl border border-border/70 bg-muted/15 p-2.5">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><CircleDollarSign className="h-3 w-3" /> Razem</div>
-              <div className="text-sm font-bold text-foreground mt-1">{money(summary.total)}</div>
+              <div className="text-sm font-bold text-foreground mt-1">{money(summary.total, hideAmounts)}</div>
             </div>
             <div className="rounded-xl border border-border/70 bg-green-500/5 p-2.5">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><CheckCircle2 className="h-3 w-3" /> Opłacone</div>
-              <div className="text-sm font-bold text-green-400 mt-1">{money(summary.paid)}</div>
+              <div className="text-sm font-bold text-green-400 mt-1">{money(summary.paid, hideAmounts)}</div>
             </div>
             <div className="rounded-xl border border-border/70 bg-orange-500/5 p-2.5">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><Clock3 className="h-3 w-3" /> Pozostało</div>
-              <div className="text-sm font-bold text-orange-400 mt-1">{money(summary.remaining)}</div>
+              <div className="text-sm font-bold text-orange-400 mt-1">{money(summary.remaining, hideAmounts)}</div>
             </div>
             <div className="rounded-xl border border-border/70 bg-muted/15 p-2.5">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><ReceiptText className="h-3 w-3" /> M / J</div>
-              <div className="text-xs font-bold text-foreground mt-1"><span className="text-blue-300">{names.m} {money(summary.paidByM)}</span> · <span className="text-violet-300">{names.j} {money(summary.paidByJ)}</span></div>
+              <div className="text-xs font-bold text-foreground mt-1"><span className="text-blue-300">{names.m} {money(summary.paidByM, hideAmounts)}</span> · <span className="text-violet-300">{names.j} {money(summary.paidByJ, hideAmounts)}</span></div>
             </div>
             <div className="rounded-xl border border-border/70 bg-primary/5 p-2.5 col-span-2 lg:col-span-1">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><Scale className="h-3 w-3" /> Do wyrównania</div>
               <div className="text-xs font-bold text-foreground mt-1">
-                {summary.net === 0 ? 'Wyrównane' : summary.net > 0 ? `${names.j} → ${names.m} ${money(summary.net)}` : `${names.m} → ${names.j} ${money(Math.abs(summary.net))}`}
+                {summary.net === 0 ? 'Wyrównane' : summary.net > 0 ? `${names.j} → ${names.m} ${money(summary.net, hideAmounts)}` : `${names.m} → ${names.j} ${money(Math.abs(summary.net), hideAmounts)}`}
               </div>
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function CurrentMonthPanel({ data }: Props) {
                     <div key={cat.id} className="rounded-lg border border-border/60 bg-card/60 px-3 py-2 text-xs flex items-center gap-2">
                       <span className={`h-2 w-2 rounded-full ${dueState === 'overdue' ? 'bg-red-500' : dueState === 'today' ? 'bg-orange-400' : 'bg-yellow-400'}`} />
                       <span className="font-semibold text-foreground truncate">{cat.name}</span>
-                      <span className="text-muted-foreground ml-auto shrink-0">{amount > 0 ? money(amount) : 'brak kwoty'}</span>
+                      <span className="text-muted-foreground ml-auto shrink-0">{amount > 0 ? money(amount, hideAmounts) : 'brak kwoty'}</span>
                     </div>
                   ))}
                 </div>
@@ -239,7 +239,7 @@ export default function CurrentMonthPanel({ data }: Props) {
                     <span className="font-semibold text-foreground min-w-0 flex-1 truncate">{cat.name}</span>
                     {cat.dueDay && <span className="hidden sm:inline text-muted-foreground shrink-0">do {cat.dueDay}.</span>}
                     {note && <span className="hidden md:inline text-muted-foreground truncate max-w-[180px]" title={note}>📝 {note}</span>}
-                    {summary.hasMoney && <span className="text-muted-foreground shrink-0">{amount > 0 ? money(amount) : '—'}</span>}
+                    {summary.hasMoney && <span className="text-muted-foreground shrink-0">{amount > 0 ? money(amount, hideAmounts) : '—'}</span>}
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${statusClass(status)}`}>{paymentStatusLabel(status, names)}</span>
                     {dueState === 'overdue' && <span className="text-[10px] font-bold text-destructive shrink-0">zaległe</span>}
                     {dueState === 'today' && <span className="text-[10px] font-bold text-orange-400 shrink-0">dziś</span>}

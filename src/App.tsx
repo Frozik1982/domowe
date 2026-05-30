@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useExpenseStore } from '@/hooks/useExpenseStore';
 import { useDarkMode } from '@/hooks/useDarkMode';
@@ -15,7 +15,7 @@ import ManageCategoriesDialog from '@/components/ManageCategoriesDialog';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut, Undo2, Eye, EyeOff } from 'lucide-react';
 import InstallPrompt from '@/components/InstallPrompt';
 import PdfExportDialog from '@/components/PdfExportDialog';
 import { type FilterType } from '@/types';
@@ -93,6 +93,11 @@ function AppContent() {
   const [settingsOpen, setSettingsOpen]     = useState(false);
   const [showCharts, setShowCharts]         = useState(false);
   const [pdfOpen, setPdfOpen]               = useState(false);
+  const [hideAmounts, setHideAmounts]       = useState(() => localStorage.getItem('expense-hide-amounts') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('expense-hide-amounts', String(hideAmounts));
+  }, [hideAmounts]);
 
   const handleExport = useCallback(() => {
     const raw  = localStorage.getItem(STORAGE_KEY) ?? '{}';
@@ -141,7 +146,7 @@ function AppContent() {
     toast.success('Plik Excel wyeksportowany');
   }, [store.data, names]);
 
-  const { data, setYear, addCategory, updateCategory, deleteCategory, setStatus, clearAllCells, setNote } = store;
+  const { data, setYear, addCategory, updateCategory, deleteCategory, setStatus, clearAllCells, setNote, undoLastChange, canUndo } = store;
   const startYear = data.year;
   const endYear   = data.year + 1;
 
@@ -175,6 +180,26 @@ function AppContent() {
                   </button>
                 ))}
               </div>
+
+              <Button
+                variant="outline" size="sm"
+                className="h-7 px-2 gap-1 text-xs"
+                disabled={!canUndo}
+                onClick={() => { undoLastChange(); toast.success('Cofnięto ostatnią zmianę'); }}
+                title={canUndo ? 'Cofnij ostatnią zmianę' : 'Brak zmian do cofnięcia'}
+              >
+                <Undo2 className="h-3.5 w-3.5" /><span className="hidden lg:inline">Cofnij</span>
+              </Button>
+
+              <Button
+                variant={hideAmounts ? 'secondary' : 'outline'} size="sm"
+                className="h-7 px-2 gap-1 text-xs"
+                onClick={() => setHideAmounts(v => !v)}
+                title={hideAmounts ? 'Pokaż kwoty' : 'Ukryj kwoty'}
+              >
+                {hideAmounts ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                <span className="hidden lg:inline">{hideAmounts ? 'Pokaż kwoty' : 'Ukryj kwoty'}</span>
+              </Button>
 
               <Button variant="outline" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setManageCatsOpen(true)}
                 title="Zarządzaj kategoriami rachunków">
@@ -244,20 +269,20 @@ function AppContent() {
       {/* ── Main content ── */}
       <main className="container mx-auto px-3 sm:px-4 py-4 print:p-2 print:max-w-none">
         <div className="print:hidden">
-          <SummaryCards data={data} />
-          <CurrentMonthPanel data={data} />
-          <OverdueView data={data} />
+          <SummaryCards data={data} hideAmounts={hideAmounts} />
+          <CurrentMonthPanel data={data} hideAmounts={hideAmounts} />
+          <OverdueView data={data} hideAmounts={hideAmounts} />
         </div>
 
         {/* Desktop: full table */}
         <div className="hidden sm:block">
-          <ExpenseTable store={store} filter={filter} editMode={editMode} />
+          <ExpenseTable store={store} filter={filter} editMode={editMode} hideAmounts={hideAmounts} />
         </div>
 
         {/* Mobile: month card view */}
-        <MobileMonthView store={store} filter={filter} editMode={editMode} year={data.year} />
+        <MobileMonthView store={store} filter={filter} editMode={editMode} year={data.year} hideAmounts={hideAmounts} />
 
-        {showCharts && <ChartsSection data={data} />}
+        {showCharts && <ChartsSection data={data} hideAmounts={hideAmounts} />}
 
         {/* Legend (desktop only) */}
         <div className="mt-3 hidden sm:flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground print:hidden">

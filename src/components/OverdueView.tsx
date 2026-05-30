@@ -6,7 +6,7 @@ import { usePayerNames, payerLabel } from '@/hooks/usePayerNames';
 const MONTHS = ['Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień','Styczeń','Luty','Marzec','Kwiecień'];
 const PAID = new Set<CellStatus>(['paid-M','paid-J','paid-MJ']);
 
-interface Props { data: StoreData }
+interface Props { data: StoreData; hideAmounts?: boolean }
 
 function monthDate(dataYear: number, monthIndex: number, dueDay: number): Date {
   const jsMonth = monthIndex < 8 ? monthIndex + 4 : monthIndex - 8;
@@ -14,11 +14,11 @@ function monthDate(dataYear: number, monthIndex: number, dueDay: number): Date {
   return new Date(year, jsMonth, dueDay, 23, 59, 59);
 }
 
-function money(v: number): string {
-  return `${v.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł`;
+function money(v: number, hide = false): string {
+  return hide ? '••• zł' : `${v.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł`;
 }
 
-export default function OverdueView({ data }: Props) {
+export default function OverdueView({ data, hideAmounts = false }: Props) {
   const { names } = usePayerNames();
   const [open, setOpen] = useState(false);
   const today = new Date();
@@ -76,7 +76,7 @@ export default function OverdueView({ data }: Props) {
               {cat.color && <span className="h-2.5 w-2.5 rounded-full border border-border/30" style={{ backgroundColor: cat.color }} />}
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-foreground truncate">{cat.name}</div>
-                <div className="text-muted-foreground truncate">{MONTHS[monthIndex]} · {payerLabel(cat.assignedTo, names)}{cat.amount > 0 ? ` · ${money(cat.amount)}` : ''}{note ? ` · ${note}` : ''}</div>
+                <div className="text-muted-foreground truncate">{MONTHS[monthIndex]} · {payerLabel(cat.assignedTo, names)}{cat.amount > 0 ? ` · ${money(cat.amount, hideAmounts)}` : ''}{note ? ` · ${note}` : ''}</div>
               </div>
               <span className={`shrink-0 rounded-full border px-2 py-1 font-bold ${diffDays < 0 ? 'border-red-500/30 bg-red-500/10 text-red-300' : diffDays === 0 ? 'border-orange-500/30 bg-orange-500/10 text-orange-300' : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300'}`}>
                 {diffDays < 0 ? `${Math.abs(diffDays)} dni po terminie` : diffDays === 0 ? 'termin dziś' : `za ${diffDays} dni`}
