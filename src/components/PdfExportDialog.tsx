@@ -175,8 +175,8 @@ function buildPdfHtml(data: StoreData): string {
     </table>
 
     <div class="legend">
-      <span>M✓ = M zapłacił</span>
-      <span>J✓ = J zapłaciła</span>
+      <span>M✓ = M zapłaciła</span>
+      <span>J✓ = J zapłacił</span>
       <span>✓ = Oboje zapłacili</span>
       <span>— = Do opłacenia</span>
       <span>· = Niewymagane</span>

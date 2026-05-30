@@ -13,8 +13,8 @@ const BADGE_CLASS: Record<AssignedTo, string> = { 'M': 'badge-m', 'J': 'badge-j'
 
 const STATUS_LABEL: Record<CellStatus, string> = {
   'unpaid':       'Do opłacenia',
-  'paid-M':       'M zapłacił ✓',
-  'paid-J':       'J zapłaciła ✓',
+  'paid-M':       'M zapłaciła ✓',
+  'paid-J':       'J zapłacił ✓',
   'paid-MJ':      'Oboje ✓',
   'not-required': 'Niewymagane',
 };

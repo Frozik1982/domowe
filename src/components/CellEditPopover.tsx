@@ -14,15 +14,15 @@ interface Props {
 
 const STATUS_LABEL: Record<CellStatus, string> = {
   'unpaid': 'Do opłacenia',
-  'paid-M': 'M zapłacił ✓',
-  'paid-J': 'J zapłaciła ✓',
+  'paid-M': 'M zapłaciła ✓',
+  'paid-J': 'J zapłacił ✓',
   'paid-MJ': 'Oboje ✓',
   'not-required': 'Niewymagane',
 };
 
 const OPTIONS: { status: CellStatus; label: string; badgeClass: string; badgeText: string }[] = [
-  { status: 'paid-M',        label: 'M zapłacił',   badgeClass: 'badge-m',  badgeText: 'M' },
-  { status: 'paid-J',        label: 'J zapłaciła',  badgeClass: 'badge-j',  badgeText: 'J' },
+  { status: 'paid-M',        label: 'M zapłaciła',   badgeClass: 'badge-m',  badgeText: 'M' },
+  { status: 'paid-J',        label: 'J zapłacił',  badgeClass: 'badge-j',  badgeText: 'J' },
   { status: 'paid-MJ',       label: 'M+J (oboje)',  badgeClass: 'badge-mj', badgeText: 'M+J' },
   { status: 'not-required',  label: 'Niewymagane',  badgeClass: '',         badgeText: '·' },
 ];

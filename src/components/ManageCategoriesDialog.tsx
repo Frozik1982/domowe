@@ -7,6 +7,7 @@ import { Pencil, Trash2, Plus, ChevronDown, ChevronUp, RotateCcw, Search, Shield
 import { type Category, type CellData, type CellStatus, type AssignedTo } from '@/hooks/useExpenseStore';
 import CategoryDialog from '@/components/CategoryDialog';
 import { toast } from 'sonner';
+import { usePayerNames, payerLabel } from '@/hooks/usePayerNames';
 
 const MONTHS_SHORT = ['Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru','Sty','Lut','Mar','Kwi'];
 const BADGE: Record<AssignedTo, string> = { 'M': 'badge-m', 'J': 'badge-j', 'M+J': 'badge-mj' };
@@ -41,6 +42,7 @@ export default function ManageCategoriesDialog({
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [resetInput, setResetInput]         = useState('');
   const [searchQuery, setSearchQuery]       = useState('');
+  const { names } = usePayerNames();
 
   const deleteName = categories.find(c => c.id === deleteCatId)?.name ?? '';
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -123,7 +125,7 @@ export default function ManageCategoriesDialog({
                         <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0 border border-border/20" style={{ backgroundColor: cat.color }} />
                       )}
                       <span className="font-semibold text-sm text-foreground truncate">{cat.name}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${BADGE[cat.assignedTo]}`}>{cat.assignedTo}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${BADGE[cat.assignedTo]}`}>{payerLabel(cat.assignedTo, names)}</span>
                       {cat.dueDay && <span className="text-[10px] text-muted-foreground shrink-0">📅 {cat.dueDay}.</span>}
                       {cat.amount > 0 && <span className="text-xs text-muted-foreground shrink-0">{cat.amount.toLocaleString('pl-PL')} zł</span>}
                     </div>

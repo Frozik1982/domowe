@@ -2,11 +2,13 @@ import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useExpenseStore } from '@/hooks/useExpenseStore';
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { usePayerNames } from '@/hooks/usePayerNames';
 import PinGate, { useLogout } from '@/components/PinGate';
 import ExpenseTable from '@/components/ExpenseTable';
 import MobileMonthView from '@/components/MobileMonthView';
 import SummaryCards from '@/components/SummaryCards';
 import CurrentMonthPanel from '@/components/CurrentMonthPanel';
+import OverdueView from '@/components/OverdueView';
 import SettingsDialog from '@/components/SettingsDialog';
 import ChartsSection from '@/components/ChartsSection';
 import ManageCategoriesDialog from '@/components/ManageCategoriesDialog';
@@ -19,16 +21,71 @@ import PdfExportDialog from '@/components/PdfExportDialog';
 import { type FilterType } from '@/types';
 
 const STORAGE_KEY = 'expense-tracker-v1';
-const FILTERS: { label: string; value: FilterType }[] = [
-  { label: 'Wszystkie', value: 'all' }, { label: 'M', value: 'M' },
-  { label: 'J', value: 'J' },          { label: 'M+J', value: 'M+J' },
-];
+
+function monthYear(dataYear: number, monthIndex: number): string {
+  const months = ['Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień','Styczeń','Luty','Marzec','Kwiecień'];
+  return `${months[monthIndex]} ${monthIndex < 8 ? dataYear : dataYear + 1}`;
+}
+
+function statusExportLabel(status: string, names: { m: string; j: string }): string {
+  if (status === 'paid-M') return `${names.m} zapłaciła`;
+  if (status === 'paid-J') return `${names.j} zapłacił`;
+  if (status === 'paid-MJ') return 'Oboje zapłacili';
+  if (status === 'not-required') return 'Niewymagane';
+  return 'Do zapłaty';
+}
+
+function buildExportRows(data: ReturnType<typeof useExpenseStore>['data'], names: { m: string; j: string }) {
+  return data.categories.flatMap(cat => Array.from({ length: 12 }, (_, monthIndex) => {
+    const cell = data.cells.find(c => c.categoryId === cat.id && c.monthIndex === monthIndex);
+    const status = cell?.status ?? 'unpaid';
+    return {
+      Rok: `${data.year}/${String(data.year + 1).slice(2)}`,
+      Miesiac: monthYear(data.year, monthIndex),
+      Kategoria: cat.name,
+      Platnik: cat.assignedTo === 'M' ? names.m : cat.assignedTo === 'J' ? names.j : `${names.m}+${names.j}`,
+      Kwota: Number(cat.amount || 0),
+      Termin: cat.dueDay ? `${cat.dueDay}. dzień miesiąca` : '',
+      Status: statusExportLabel(status, names),
+      Notatka: cell?.note ?? '',
+    };
+  }));
+}
+
+function toCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  return '\ufeff' + [headers.map(esc).join(';'), ...rows.map(row => headers.map(h => esc(row[h])).join(';'))].join('\n');
+}
+
+function buildExcelHtml(rows: Record<string, unknown>[], title: string): string {
+  const headers = rows[0] ? Object.keys(rows[0]) : [];
+  const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title></head><body><h2>${esc(title)}</h2><table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map(h => `<td>${esc(row[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+}
+
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // ── Inner component — renders INSIDE PinGate so useLogout() has access to context ──
 function AppContent() {
   const { logout } = useLogout();          // ✅ now inside PinGate Provider
   useDarkMode();
   const store = useExpenseStore();
+  const { names } = usePayerNames();
+
+  const filters: { label: string; value: FilterType }[] = [
+    { label: 'Wszystkie', value: 'all' },
+    { label: names.m, value: 'M' },
+    { label: names.j, value: 'J' },
+    { label: `${names.m}+${names.j}`, value: 'M+J' },
+  ];
 
   const [filter, setFilter]                 = useState<FilterType>('all');
   const [manageCatsOpen, setManageCatsOpen] = useState(false);
@@ -47,7 +104,8 @@ function AppContent() {
     });
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Dane wyeksportowane');
+    localStorage.setItem('expense-last-backup-date', new Date().toISOString());
+    toast.success('Backup JSON wyeksportowany');
   }, []);
 
   const handleImport = useCallback((file: File) => {
@@ -55,6 +113,9 @@ function AppContent() {
     reader.onload = e => {
       try {
         const parsed = JSON.parse(e.target?.result as string);
+        if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.categories) || !Array.isArray(parsed.cells) || typeof parsed.year !== 'number') {
+          throw new Error('Invalid backup shape');
+        }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
         toast.success('Dane zaimportowane — odświeżam stronę…');
         setTimeout(() => window.location.reload(), 800);
@@ -64,6 +125,21 @@ function AppContent() {
     };
     reader.readAsText(file);
   }, []);
+
+
+  const handleExportCsv = useCallback(() => {
+    const rows = buildExportRows(store.data, names);
+    const csv = toCsv(rows);
+    downloadFile(csv, `platnosci-${store.data.year}-${store.data.year + 1}.csv`, 'text/csv;charset=utf-8');
+    toast.success('CSV wyeksportowany');
+  }, [store.data, names]);
+
+  const handleExportExcel = useCallback(() => {
+    const rows = buildExportRows(store.data, names);
+    const html = buildExcelHtml(rows, `Płatności ${store.data.year}/${String(store.data.year + 1).slice(2)}`);
+    downloadFile(html, `platnosci-${store.data.year}-${store.data.year + 1}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+    toast.success('Plik Excel wyeksportowany');
+  }, [store.data, names]);
 
   const { data, setYear, addCategory, updateCategory, deleteCategory, setStatus, clearAllCells, setNote } = store;
   const startYear = data.year;
@@ -92,7 +168,7 @@ function AppContent() {
             {/* Actions */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
-                {FILTERS.map(f => (
+                {filters.map(f => (
                   <button key={f.value} onClick={() => setFilter(f.value)}
                     className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${filter === f.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                     {f.label}
@@ -162,7 +238,7 @@ function AppContent() {
       {/* ── Print header ── */}
       <div className="hidden print:block px-4 py-3 border-b border-gray-300">
         <h1 className="text-base font-bold">Zestawienie płatności {startYear}/{String(endYear).slice(2)}</h1>
-        <p className="text-[10px] text-gray-500 mt-0.5">M✓ / J✓ = kto zapłacił · ✓ = oboje · — = do opłacenia · · = niewymagane</p>
+        <p className="text-[10px] text-gray-500 mt-0.5">M✓ / J✓ = kto zapłacił/a · ✓ = oboje · — = do opłacenia · · = niewymagane</p>
       </div>
 
       {/* ── Main content ── */}
@@ -170,6 +246,7 @@ function AppContent() {
         <div className="print:hidden">
           <SummaryCards data={data} />
           <CurrentMonthPanel data={data} />
+          <OverdueView data={data} />
         </div>
 
         {/* Desktop: full table */}
@@ -188,8 +265,8 @@ function AppContent() {
             <HelpCircle className="h-3 w-3" />Kliknij komórkę · opłacone blokują się <Lock className="h-2.5 w-2.5 inline mx-0.5 opacity-50" />
           </span>
           {[
-            { cls: 'st-paid st-paid-m', label: 'M✓', desc: 'M zapłacił' },
-            { cls: 'st-paid st-paid-j', label: 'J✓', desc: 'J zapłaciła' },
+            { cls: 'st-paid st-paid-m', label: `${names.m}✓`, desc: `${names.m} zapłaciła` },
+            { cls: 'st-paid st-paid-j', label: `${names.j}✓`, desc: `${names.j} zapłacił` },
             { cls: 'st-paid st-paid-mj',label: '✓',  desc: 'Oboje' },
             { cls: 'st-unpaid',         label: '—',  desc: 'Do opłacenia' },
             { cls: 'st-notreq',         label: '·',  desc: 'Niewymagane' },
@@ -213,7 +290,8 @@ function AppContent() {
         onSetNote={setNote}
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen}
-        onExport={handleExport} onImport={handleImport} />
+        onExport={handleExport} onImport={handleImport}
+        onExportCsv={handleExportCsv} onExportExcel={handleExportExcel} />
       <PdfExportDialog open={pdfOpen} onOpenChange={setPdfOpen} data={data} />
 
       <Toaster richColors />

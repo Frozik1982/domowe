@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign, Clock3, ReceiptText, Scale } from 'lucide-react';
 import { type CellStatus, type Category, type StoreData } from '@/hooks/useExpenseStore';
+import { usePayerNames, paymentStatusLabel } from '@/hooks/usePayerNames';
 
 const MONTHS = ['Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień','Styczeń','Luty','Marzec','Kwiecień'];
 const PAID = new Set<CellStatus>(['paid-M', 'paid-J', 'paid-MJ']);
@@ -37,13 +38,6 @@ function getDueState(dataYear: number, mi: number, cat: Category, status: CellSt
   return 'later';
 }
 
-function statusLabel(status: CellStatus): string {
-  if (status === 'paid-M') return 'M zapłacił';
-  if (status === 'paid-J') return 'J zapłaciła';
-  if (status === 'paid-MJ') return 'Oboje';
-  if (status === 'not-required') return 'Niewymagane';
-  return 'Do zapłaty';
-}
 
 function statusClass(status: CellStatus): string {
   if (status === 'paid-M') return 'badge-m';
@@ -57,6 +51,7 @@ interface Props { data: StoreData }
 
 export default function CurrentMonthPanel({ data }: Props) {
   const [showDetails, setShowDetails] = useState(false);
+  const { names } = usePayerNames();
   const currentMonthIndex = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
 
   const summary = useMemo(() => {
@@ -103,7 +98,7 @@ export default function CurrentMonthPanel({ data }: Props) {
         }
       }
 
-      return { cat, status, amount, required, isPaid, dueState };
+      return { cat, status, amount, required, isPaid, dueState, note: data.cells.find(c => c.categoryId === cat.id && c.monthIndex === currentMonthIndex)?.note ?? '' };
     });
 
     const remaining = Math.max(0, total - paid);
@@ -196,12 +191,12 @@ export default function CurrentMonthPanel({ data }: Props) {
             </div>
             <div className="rounded-xl border border-border/70 bg-muted/15 p-2.5">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><ReceiptText className="h-3 w-3" /> M / J</div>
-              <div className="text-xs font-bold text-foreground mt-1"><span className="text-blue-300">M {money(summary.paidByM)}</span> · <span className="text-violet-300">J {money(summary.paidByJ)}</span></div>
+              <div className="text-xs font-bold text-foreground mt-1"><span className="text-blue-300">{names.m} {money(summary.paidByM)}</span> · <span className="text-violet-300">{names.j} {money(summary.paidByJ)}</span></div>
             </div>
             <div className="rounded-xl border border-border/70 bg-primary/5 p-2.5 col-span-2 lg:col-span-1">
               <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground"><Scale className="h-3 w-3" /> Do wyrównania</div>
               <div className="text-xs font-bold text-foreground mt-1">
-                {summary.net === 0 ? 'Wyrównane' : summary.net > 0 ? `J → M ${money(summary.net)}` : `M → J ${money(Math.abs(summary.net))}`}
+                {summary.net === 0 ? 'Wyrównane' : summary.net > 0 ? `${names.j} → ${names.m} ${money(summary.net)}` : `${names.m} → ${names.j} ${money(Math.abs(summary.net))}`}
               </div>
             </div>
           </div>
@@ -238,13 +233,14 @@ export default function CurrentMonthPanel({ data }: Props) {
                 Pozycje w tym miesiącu
               </div>
               <div className="divide-y divide-border/50 max-h-56 overflow-auto category-scroll">
-                {summary.items.map(({ cat, status, amount, dueState }) => (
+                {summary.items.map(({ cat, status, amount, dueState, note }) => (
                   <div key={cat.id} className="px-3 py-2 flex items-center gap-2 text-xs">
                     {cat.color && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />}
                     <span className="font-semibold text-foreground min-w-0 flex-1 truncate">{cat.name}</span>
                     {cat.dueDay && <span className="hidden sm:inline text-muted-foreground shrink-0">do {cat.dueDay}.</span>}
+                    {note && <span className="hidden md:inline text-muted-foreground truncate max-w-[180px]" title={note}>📝 {note}</span>}
                     {summary.hasMoney && <span className="text-muted-foreground shrink-0">{amount > 0 ? money(amount) : '—'}</span>}
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${statusClass(status)}`}>{statusLabel(status)}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${statusClass(status)}`}>{paymentStatusLabel(status, names)}</span>
                     {dueState === 'overdue' && <span className="text-[10px] font-bold text-destructive shrink-0">zaległe</span>}
                     {dueState === 'today' && <span className="text-[10px] font-bold text-orange-400 shrink-0">dziś</span>}
                     {dueState === 'soon' && <span className="text-[10px] font-bold text-yellow-400 shrink-0">wkrótce</span>}

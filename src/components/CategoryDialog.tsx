@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { type Category, type AssignedTo } from '@/hooks/useExpenseStore';
+import { usePayerNames } from '@/hooks/usePayerNames';
 import { X, CreditCard, CalendarIcon } from 'lucide-react';
 import { format, addMonths, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function CategoryDialog({ open, onOpenChange, initialData, onSave }: Props) {
+  const { names } = usePayerNames();
   const [name, setName]                     = useState('');
   const [amount, setAmount]                 = useState('');
   const [assignedTo, setAssignedTo]         = useState<AssignedTo>('M+J');
@@ -120,9 +122,9 @@ export default function CategoryDialog({ open, onOpenChange, initialData, onSave
               <Select value={assignedTo} onValueChange={v => setAssignedTo(v as AssignedTo)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="M">M — tylko M</SelectItem>
-                  <SelectItem value="J">J — tylko J</SelectItem>
-                  <SelectItem value="M+J">M+J — wspólne</SelectItem>
+                  <SelectItem value="M">{names.m} — tylko {names.m}</SelectItem>
+                  <SelectItem value="J">{names.j} — tylko {names.j}</SelectItem>
+                  <SelectItem value="M+J">{names.m}+{names.j} — wspólne</SelectItem>
                 </SelectContent>
               </Select>
             </div>

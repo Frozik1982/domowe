@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { type StoreData, type Category, type CellStatus } from '@/hooks/useExpenseStore';
+import { usePayerNames } from '@/hooks/usePayerNames';
 import { AlertTriangle, CheckCircle2, ArrowRightLeft, TrendingUp, CreditCard } from 'lucide-react';
 
 const PAID_SET = new Set<CellStatus>(['paid-M', 'paid-J', 'paid-MJ']);
@@ -230,6 +231,7 @@ function InstallmentCard({ data }: { data: StoreData }) {
 }
 
 export default function SummaryCards({ data }: Props) {
+  const { names } = usePayerNames();
   const year    = useMemo(() => computeYear(data), [data]);
   const mi      = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
   const mon     = useMemo(() => mi !== null ? computeMonth(data, mi) : null, [data, mi]);
@@ -242,12 +244,12 @@ export default function SummaryCards({ data }: Props) {
       {/* Year progress rings */}
       <div className="flex gap-3 flex-wrap">
         <YearCard
-          label="M" paid={year.mPaid} total={year.mTotal}
+          label={names.m} paid={year.mPaid} total={year.mTotal}
           paidAmt={year.mPaidAmt} totalAmt={year.mTotalAmt}
           hasAmounts={hasAmounts} colorVar="--chart-1" accentCss="--chart-1"
         />
         <YearCard
-          label="J" paid={year.jPaid} total={year.jTotal}
+          label={names.j} paid={year.jPaid} total={year.jTotal}
           paidAmt={year.jPaidAmt} totalAmt={year.jTotalAmt}
           hasAmounts={hasAmounts} colorVar="--chart-2" accentCss="--chart-2"
         />
@@ -262,8 +264,8 @@ export default function SummaryCards({ data }: Props) {
             </span>
             <div className="flex flex-wrap gap-4 flex-1">
               {([
-                { lbl: 'M', due: mon.mDue, paid: mon.mPaid, rem: mon.mRem, cls: 'badge-m' },
-                { lbl: 'J', due: mon.jDue, paid: mon.jPaid, rem: mon.jRem, cls: 'badge-j' },
+                { lbl: names.m, due: mon.mDue, paid: mon.mPaid, rem: mon.mRem, cls: 'badge-m' },
+                { lbl: names.j, due: mon.jDue, paid: mon.jPaid, rem: mon.jRem, cls: 'badge-j' },
               ] as const).map(u => (
                 <span key={u.lbl} className="flex items-center gap-1.5 text-xs">
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${u.cls}`}>{u.lbl}</span>
@@ -292,16 +294,16 @@ export default function SummaryCards({ data }: Props) {
             </span>
           ) : settle.net > 0 ? (
             <span className="font-semibold flex items-center gap-1">
-              <span className="badge-j text-[10px] font-bold px-1.5 py-0.5 rounded-full">J</span>
+              <span className="badge-j text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.j}</span>
               <span className="text-muted-foreground">dopłaca</span>
-              <span className="badge-m text-[10px] font-bold px-1.5 py-0.5 rounded-full">M</span>
+              <span className="badge-m text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.m}</span>
               <span className="text-foreground font-bold ml-0.5">{settle.net.toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł</span>
             </span>
           ) : (
             <span className="font-semibold flex items-center gap-1">
-              <span className="badge-m text-[10px] font-bold px-1.5 py-0.5 rounded-full">M</span>
+              <span className="badge-m text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.m}</span>
               <span className="text-muted-foreground">dopłaca</span>
-              <span className="badge-j text-[10px] font-bold px-1.5 py-0.5 rounded-full">J</span>
+              <span className="badge-j text-[10px] font-bold px-1.5 py-0.5 rounded-full">{names.j}</span>
               <span className="text-foreground font-bold ml-0.5">{Math.abs(settle.net).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} zł</span>
             </span>
           )}
