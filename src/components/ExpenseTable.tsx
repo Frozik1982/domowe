@@ -121,7 +121,12 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
   function saveRenameCategory() {
     if (!renaming || !updateCategory) return;
     const nextName = renaming.value.trim().replace(/\s+/g, ' ');
-    if (!nextName) return;
+    // Safety: never save an empty name. If the field was cleared by accident,
+    // cancel the edit and keep the previous category name.
+    if (!nextName) {
+      setRenaming(null);
+      return;
+    }
     if (nextName === renaming.original) {
       setRenaming(null);
       return;
@@ -196,44 +201,49 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                     onMouseEnter={() => setHover(h => ({ row: h?.row ?? -1, col: cat.id }))}
                     onMouseLeave={() => setHover(null)}
                     style={cat.color ? { borderTop: `3px solid ${cat.color}` } : {}}
-                    className={`bg-muted/95 backdrop-blur-sm border-b border-l border-border py-3 px-2 text-center transition-colors ${isHovCol ? 'bg-primary/10 header-col-hover' : ''} print:bg-gray-100`}
+                    className={`relative overflow-visible bg-muted/95 backdrop-blur-sm border-b border-l border-border py-3 px-2 text-center transition-colors ${isHovCol ? 'bg-primary/10 header-col-hover' : ''} print:bg-gray-100`}
                   >
                     {renaming?.id === cat.id ? (
-                      <div
-                        className="mx-auto flex max-w-[150px] items-center justify-center gap-1 print:hidden"
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          autoFocus
-                          value={renaming.value}
-                          onChange={(e) => setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveRenameCategory();
-                            if (e.key === 'Escape') cancelRenameCategory();
-                          }}
-                          className="h-7 min-w-0 flex-1 rounded-lg border border-primary/45 bg-background px-2 text-center text-[11px] font-semibold text-foreground outline-none focus:ring-2 focus:ring-primary/25"
-                          aria-label={`Nowa nazwa kategorii ${cat.name}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={saveRenameCategory}
-                          disabled={!renaming.value.trim()}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title="Zapisz nazwę"
-                          aria-label="Zapisz nazwę"
+                      <div className="relative h-8 print:hidden">
+                        <div
+                          className="absolute left-1/2 top-1/2 z-50 flex w-[230px] -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-xl border border-primary/35 bg-popover/95 p-1 shadow-xl backdrop-blur"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                         >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelRenameCategory}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          title="Anuluj zmianę"
-                          aria-label="Anuluj zmianę"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                          <input
+                            autoFocus
+                            value={renaming.value}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r)}
+                            onKeyDown={(e) => {
+                              e.stopPropagation();
+                              if (e.key === 'Enter') saveRenameCategory();
+                              if (e.key === 'Escape') cancelRenameCategory();
+                            }}
+                            className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 text-left text-xs font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25"
+                            placeholder="Nazwa kategorii"
+                            aria-label={`Nowa nazwa kategorii ${cat.name}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={saveRenameCategory}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                            title="Zapisz nazwę"
+                            aria-label="Zapisz nazwę"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRenameCategory}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Anuluj zmianę"
+                            aria-label="Anuluj zmianę"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
