@@ -88,27 +88,12 @@ export default function CloudSyncDialog({
   const userId = session?.user?.id;
 
   const deviceKind = useMemo(() => {
-    if (typeof window === "undefined") return "urządzenia";
+    if (typeof window === "undefined") return "urządzeniu";
     const ua = navigator.userAgent || "";
     const isMobile =
       /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || window.innerWidth < 768;
-    return isMobile ? "telefonu" : "komputera";
+    return isMobile ? "telefonie" : "komputerze";
   }, []);
-
-  const deviceKindAccusative =
-    deviceKind === "telefonu" ? "telefon" : "komputer";
-
-  const readableStatus = useMemo(() => {
-    if (!isSupabaseConfigured) return "Supabase nie jest skonfigurowany";
-    if (!session) return "Nie zalogowano do chmury";
-    if (status === "syncing") return "Trwa zapis lub pobieranie...";
-    if (status === "choice") return "Wybierz, które dane mają być główne";
-    if (status === "offline") return "Brak połączenia lub błąd sieci";
-    if (status === "error") return "Błąd synchronizacji";
-    if (status === "ready")
-      return `Połączono · ostatni zapis: ${formatDate(cloudUpdatedAt)}`;
-    return "Połączono";
-  }, [cloudUpdatedAt, session, status]);
 
   const loadCloud = useCallback(async (): Promise<CloudRow | null> => {
     if (!supabase || !userId) return null;
@@ -120,8 +105,9 @@ export default function CloudSyncDialog({
 
     if (error) throw error;
     if (!row) return null;
-    if (!isValidStoreData(row.data))
+    if (!isValidStoreData(row.data)) {
       throw new Error("Dane w chmurze mają nieprawidłowy format");
+    }
     return row as CloudRow;
   }, [userId]);
 
@@ -151,13 +137,12 @@ export default function CloudSyncDialog({
         setChoiceRequired(false);
         setAutoSyncReady(true);
         setStatus("ready");
-        if (!silent) toast.success("Wysłano dane do chmury");
+        if (!silent) toast.success("Wysłano do chmury");
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Nieznany błąd";
+        const message = error instanceof Error ? error.message : "Nieznany błąd";
         setLastError(message);
         setStatus(navigator.onLine ? "error" : "offline");
-        if (!silent) toast.error("Nie udało się wysłać danych do chmury");
+        if (!silent) toast.error("Nie udało się wysłać danych");
       } finally {
         if (!silent) setBusy(false);
       }
@@ -168,14 +153,15 @@ export default function CloudSyncDialog({
   const downloadFromCloud = useCallback(
     async (silent = false) => {
       if (!supabase || !userId) return;
-      setBusy(true);
-      setStatus("syncing");
+      if (!silent) {
+        setBusy(true);
+        setStatus("syncing");
+      }
       setLastError("");
       try {
         const row = await loadCloud();
         if (!row) {
-          if (!silent)
-            toast.info("W chmurze nie ma jeszcze danych — wyślij dane lokalne");
+          if (!silent) toast.info("W chmurze nie ma jeszcze danych — kliknij Wyślij");
           setStatus("choice");
           return;
         }
@@ -186,15 +172,14 @@ export default function CloudSyncDialog({
         setChoiceRequired(false);
         setAutoSyncReady(true);
         setStatus("ready");
-        if (!silent) toast.success("Dane pobrane z chmury");
+        if (!silent) toast.success("Odebrano dane z chmury");
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Nieznany błąd";
+        const message = error instanceof Error ? error.message : "Nieznany błąd";
         setLastError(message);
         setStatus(navigator.onLine ? "error" : "offline");
-        if (!silent) toast.error("Nie udało się pobrać danych z chmury");
+        if (!silent) toast.error("Nie udało się odebrać danych");
       } finally {
-        setBusy(false);
+        if (!silent) setBusy(false);
       }
     },
     [loadCloud, onReplaceData, userId],
@@ -203,14 +188,13 @@ export default function CloudSyncDialog({
   const inspectCloudOnLogin = useCallback(async () => {
     if (!supabase || !userId || didInitialLoad.current) return;
     didInitialLoad.current = true;
-    setBusy(true);
-    setStatus("syncing");
     setLastError("");
     try {
       const row = await loadCloud();
       if (!row) {
-        await uploadToCloud(true);
-        toast.success("Utworzono kopię danych w chmurze");
+        setChoiceRequired(true);
+        setAutoSyncReady(false);
+        setStatus("choice");
         return;
       }
 
@@ -226,15 +210,12 @@ export default function CloudSyncDialog({
       setChoiceRequired(true);
       setAutoSyncReady(false);
       setStatus("choice");
-      toast.info("Wybierz, czy wysłać dane lokalne, czy pobrać dane z chmury");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nieznany błąd";
       setLastError(message);
       setStatus(navigator.onLine ? "error" : "offline");
-    } finally {
-      setBusy(false);
     }
-  }, [data, loadCloud, uploadToCloud, userId]);
+  }, [data, loadCloud, userId]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -247,7 +228,7 @@ export default function CloudSyncDialog({
         setChoiceRequired(false);
         setAutoSyncReady(false);
         setCloudUpdatedAt(null);
-        setStatus(nextSession ? "idle" : "idle");
+        setStatus("idle");
       },
     );
 
@@ -261,7 +242,7 @@ export default function CloudSyncDialog({
   useEffect(() => {
     if (!session || !autoSyncReady || choiceRequired || busy) return;
     if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = window.setTimeout(() => uploadToCloud(true), 1500);
+    autosaveTimer.current = window.setTimeout(() => uploadToCloud(true), 2500);
     return () => {
       if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     };
@@ -312,7 +293,7 @@ export default function CloudSyncDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {session ? (
@@ -320,18 +301,16 @@ export default function CloudSyncDialog({
             ) : (
               <CloudOff className="h-5 w-5 text-muted-foreground" />
             )}
-            Chmura telefonu i komputera
+            Chmura
           </DialogTitle>
           <DialogDescription>
-            Wyślij dane z tego urządzenia do chmury albo odbierz dane z chmury
-            na tym urządzeniu.
+            Wysyłaj dane do chmury albo odbieraj je na tym urządzeniu.
           </DialogDescription>
         </DialogHeader>
 
         {!isSupabaseConfigured ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             Brakuje zmiennych VITE_SUPABASE_URL albo VITE_SUPABASE_ANON_KEY.
-            Dodaj je w Vercel i w pliku .env.local.
           </div>
         ) : !session ? (
           <div className="space-y-4">
@@ -371,21 +350,23 @@ export default function CloudSyncDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Na urządzeniu z aktualnymi rachunkami kliknij potem „Wyślij”. Na
-              drugim urządzeniu kliknij „Odbierz”.
+              Na urządzeniu z aktualnymi rachunkami kliknij „Wyślij”. Na drugim urządzeniu kliknij „Odbierz”.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-muted/30 p-3">
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-sm font-semibold text-foreground truncate">
                 {session.user.email}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                To urządzenie:{" "}
-                {deviceKind === "telefonu" ? "telefon" : "komputer"} ·{" "}
-                {readableStatus}
+                To urządzenie: {deviceKind}
               </p>
+              {cloudUpdatedAt && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ostatni zapis w chmurze: {formatDate(cloudUpdatedAt)}
+                </p>
+              )}
               {lastError && (
                 <p className="text-xs text-destructive mt-2 break-words">
                   {lastError}
@@ -396,46 +377,44 @@ export default function CloudSyncDialog({
             {choiceRequired && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
                 <p className="font-semibold text-amber-300">
-                  Wykryto różne dane na tym urządzeniu i w chmurze.
+                  Wybierz główne dane.
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  Kliknij „Wyślij”, jeśli aktualne dane są tutaj. Kliknij
-                  „Odbierz”, jeśli aktualne dane są w chmurze.
+                  „Wyślij” zapisze dane z tego urządzenia w chmurze. „Odbierz” zastąpi dane na tym urządzeniu danymi z chmury.
                 </p>
               </div>
             )}
 
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => uploadToCloud(false)}
                 disabled={busy}
-                className="gap-2"
+                className="gap-2 min-w-0"
               >
-                <Upload className="h-4 w-4" /> Wyślij
+                <Upload className="h-4 w-4 shrink-0" />
+                <span>Wyślij</span>
               </Button>
               <Button
                 onClick={() => downloadFromCloud(false)}
                 disabled={busy}
                 variant="outline"
-                className="gap-2"
+                className="gap-2 min-w-0"
               >
-                <Download className="h-4 w-4" /> Odbierz
+                <Download className="h-4 w-4 shrink-0" />
+                <span>Odbierz</span>
               </Button>
             </div>
 
             <div className="rounded-xl border border-border p-3 text-xs text-muted-foreground space-y-1">
               <p>
-                <strong className="text-foreground">Wyślij</strong> — zapisuje
-                dane z tego {deviceKind} w chmurze.
+                <strong className="text-foreground">Wyślij</strong> — kiedy aktualne dane są na tym {deviceKind}.
               </p>
               <p>
-                <strong className="text-foreground">Odbierz</strong> — pobiera
-                dane z chmury na ten {deviceKindAccusative}.
+                <strong className="text-foreground">Odbierz</strong> — kiedy aktualne dane są już w chmurze.
               </p>
-              <p>
-                Po pierwszym wyborze kolejne zmiany zapisują się w chmurze
-                automatycznie, bez migania okna.
-              </p>
+              {autoSyncReady && (
+                <p>Po wyborze kolejne zmiany zapisują się automatycznie.</p>
+              )}
             </div>
 
             <Button
