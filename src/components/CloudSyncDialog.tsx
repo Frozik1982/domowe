@@ -53,6 +53,15 @@ export default function CloudSyncDialog({ open, onOpenChange, data, onReplaceDat
 
   const userId = session?.user?.id;
 
+  const deviceKind = useMemo(() => {
+    if (typeof window === 'undefined') return 'urządzenia';
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || window.innerWidth < 768;
+    return isMobile ? 'telefonu' : 'komputera';
+  }, []);
+
+  const deviceKindAccusative = deviceKind === 'telefonu' ? 'telefon' : 'komputer';
+
   const readableStatus = useMemo(() => {
     if (!isSupabaseConfigured) return 'Supabase nie jest skonfigurowany';
     if (!session) return 'Nie zalogowano do chmury';
@@ -247,7 +256,7 @@ export default function CloudSyncDialog({ open, onOpenChange, data, onReplaceDat
             Synchronizacja telefonu i komputera
           </DialogTitle>
           <DialogDescription>
-            Dane będą zapisywane w Supabase i dostępne po zalogowaniu na innych urządzeniach.
+            Dane będą zapisane w chmurze Supabase. Dzięki temu telefon i komputer będą mieć te same rachunki po zalogowaniu na to samo konto.
           </DialogDescription>
         </DialogHeader>
 
@@ -270,40 +279,40 @@ export default function CloudSyncDialog({ open, onOpenChange, data, onReplaceDat
               <Button onClick={signUp} disabled={busy} variant="outline" className="gap-2"><UserPlus className="h-4 w-4" /> Utwórz konto</Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Najpierw zaloguj się na urządzeniu, gdzie masz aktualne dane, i wybierz „Wyślij lokalne dane do chmury”.
+              Na urządzeniu, na którym masz aktualne dane, wybierz wysłanie danych do chmury. Na drugim urządzeniu wybierz pobranie danych z chmury.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-muted/30 p-3">
               <p className="text-sm font-semibold text-foreground">{session.user.email}</p>
-              <p className="text-xs text-muted-foreground mt-1">{readableStatus}</p>
+              <p className="text-xs text-muted-foreground mt-1">To urządzenie: {deviceKind === 'telefonu' ? 'telefon' : 'komputer'} · {readableStatus}</p>
               {lastError && <p className="text-xs text-destructive mt-2 break-words">{lastError}</p>}
             </div>
 
             {choiceRequired && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-                <p className="font-semibold text-amber-300">Wykryto różne dane lokalne i w chmurze.</p>
-                <p className="text-muted-foreground mt-1">Na pierwszym urządzeniu wybierz wysłanie danych lokalnych. Na kolejnym urządzeniu wybierz pobranie z chmury.</p>
+                <p className="font-semibold text-amber-300">Wykryto różne dane na tym urządzeniu i w chmurze.</p>
+                <p className="text-muted-foreground mt-1">Jeśli dane na tym urządzeniu są aktualne, wyślij je do chmury. Jeśli chcesz zastąpić dane na tym urządzeniu danymi z chmury, wybierz pobranie.</p>
               </div>
             )}
 
             <div className="grid gap-2 sm:grid-cols-3">
               <Button onClick={() => uploadToCloud(false)} disabled={busy} className="gap-2">
-                <Upload className="h-4 w-4" /> Wyślij lokalne
+                <Upload className="h-4 w-4" /> Wyślij z tego {deviceKind}
               </Button>
               <Button onClick={() => downloadFromCloud(false)} disabled={busy} variant="outline" className="gap-2">
-                <Download className="h-4 w-4" /> Pobierz z chmury
+                <Download className="h-4 w-4" /> Pobierz na ten {deviceKindAccusative}
               </Button>
               <Button onClick={() => downloadFromCloud(false)} disabled={busy} variant="secondary" className="gap-2">
-                <RefreshCw className="h-4 w-4" /> Sync teraz
+                <RefreshCw className="h-4 w-4" /> Odśwież
               </Button>
             </div>
 
             <div className="rounded-xl border border-border p-3 text-xs text-muted-foreground space-y-1">
-              <p><strong className="text-foreground">Pierwsze urządzenie:</strong> kliknij „Wyślij lokalne”.</p>
-              <p><strong className="text-foreground">Drugie urządzenie:</strong> kliknij „Pobierz z chmury”.</p>
-              <p>Po wyborze aplikacja zapisuje zmiany w chmurze automatycznie.</p>
+              <p><strong className="text-foreground">Masz aktualne dane na tym {deviceKind}?</strong> Kliknij „Wyślij z tego {deviceKind}”.</p>
+              <p><strong className="text-foreground">Chcesz pobrać dane z drugiego urządzenia?</strong> Kliknij „Pobierz na ten {deviceKindAccusative}”.</p>
+              <p>Po pierwszym wyborze aplikacja będzie zapisywać kolejne zmiany w chmurze automatycznie.</p>
             </div>
 
             <Button onClick={signOut} disabled={busy} variant="ghost" className="gap-2 w-full text-muted-foreground hover:text-destructive">
