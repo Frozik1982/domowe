@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { type Category, type CellStatus, type AssignedTo, type CellData } from '@/hooks/useExpenseStore';
 import { type FilterType } from '@/types';
 import { Check, Copy, Eye, EyeOff, Lock, Pencil, X } from 'lucide-react';
@@ -88,12 +88,30 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
   const [hover, setHover] = useState<{ row: number; col: string } | null>(null);
   const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; original: string; value: string; rect: DOMRect } | null>(null);
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
 
   const cats = useMemo(() => [...data.categories].sort((a, b) => `${a.group || 'Bez grupy'}:${a.name}`.localeCompare(`${b.group || 'Bez grupy'}:${b.name}`, 'pl')), [data.categories]);
   const currentMonth = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
   const hiddenMonths = useMemo(() => new Set(data.hiddenMonths ?? []), [data.hiddenMonths]);
   const visibleMonthIndexes = useMemo(() => MONTHS.map((_, i) => i).filter(i => !hiddenMonths.has(i)), [hiddenMonths]);
   const isViewOnly = filter === 'all' && !editMode;
+
+
+
+  useEffect(() => {
+    if (!renaming) return;
+    const t = window.setTimeout(() => {
+      const input = renameInputRef.current;
+      if (!input) return;
+      input.focus({ preventScroll: true });
+      // On desktop selecting the whole name is convenient. On Android it can
+      // interfere with the virtual keyboard/composition and duplicate input,
+      // so select only for non-touch pointers.
+      const isTouch = window.matchMedia?.('(pointer: coarse)').matches;
+      if (!isTouch) input.select();
+    }, 40);
+    return () => window.clearTimeout(t);
+  }, [renaming?.id]);
 
   function handleCellClick(e: React.MouseEvent<HTMLTableCellElement>, cat: Category, mi: number, status: CellStatus) {
     if (editMode) {
@@ -399,16 +417,38 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
         >
           <div className="flex items-center gap-1.5">
             <input
-              autoFocus
+              ref={renameInputRef}
+              type="text"
+              inputMode="text"
+              enterKeyHint="done"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
               value={renaming.value}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r)}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                // Use only the browser-provided value. This avoids appending
+                // typed characters manually, which can duplicate input on Android.
+                setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r);
+              }}
               onKeyDown={(e) => {
                 e.stopPropagation();
-                if (e.key === 'Enter') saveRenameCategory();
-                if (e.key === 'Escape') cancelRenameCategory();
+                if (e.key === 'Backspace' && e.currentTarget.value.length === 0) {
+                  e.preventDefault();
+                  return;
+                }
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  saveRenameCategory();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelRenameCategory();
+                }
               }}
-              className="h-9 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-left text-sm font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25"
+              className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-left text-base font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25 md:text-sm"
               placeholder="Nazwa kategorii"
               aria-label="Nowa nazwa kategorii"
             />
