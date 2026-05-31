@@ -249,8 +249,8 @@ Kategorie, kwoty, terminy i grupy zostaną skopiowane, a płatności wyczyszczon
                 }
               </Button>
 
-              <Button variant="outline" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setCloudSyncOpen(true)} title="Synchronizacja telefonu i komputera">
-                <Cloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sync</span>
+              <Button variant="outline" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setCloudSyncOpen(true)} title="Chmura telefonu i komputera">
+                <Cloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">Chmura</span>
               </Button>
 
               <Button variant="outline" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setPdfOpen(true)}>
