@@ -18,6 +18,11 @@ const LOCK_MS = 30_000;
 const AUTO_LOCK_MS = 5 * 60_000;
 const KEYS = ['1','2','3','4','5','6','7','8','9','⌫','0',''];
 
+function isTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+}
+
 interface PinGateCtx {
   logout: () => void;
 }
@@ -62,6 +67,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [lockLeft, setLockLeft] = useState(getLockLeftSeconds);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoLockTimerRef = useRef<number | null>(null);
+  const allowNativeFocusRef = useRef(!isTouchDevice());
 
   const clearErrorSoon = useCallback((message: string) => {
     setErrorText(message);
@@ -111,8 +117,8 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   }, [lockLeft]);
 
   useEffect(() => {
-    if (!authorized) {
-      const t = window.setTimeout(() => inputRef.current?.focus(), 50);
+    if (!authorized && allowNativeFocusRef.current) {
+      const t = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
       return () => window.clearTimeout(t);
     }
   }, [authorized, setupMode]);
@@ -224,8 +230,17 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authorized) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key >= '0' && e.key <= '9') press(e.key);
-      else if (e.key === 'Backspace') press('⌫');
+      const target = e.target as HTMLElement | null;
+      const isEditableTarget = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+      if (isEditableTarget && target !== inputRef.current) return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        press(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        press('⌫');
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -251,7 +266,9 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background"
-      onClick={() => inputRef.current?.focus()}
+      onClick={() => {
+        if (allowNativeFocusRef.current) inputRef.current?.focus({ preventScroll: true });
+      }}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/8 blur-3xl" />
@@ -276,10 +293,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
             <input
               ref={inputRef}
               value={pin}
-              onChange={(e) => setPinDigits(e.target.value)}
-              inputMode="numeric"
+              readOnly
+              onPaste={(e) => {
+                e.preventDefault();
+                setPinDigits(e.clipboardData.getData('text'));
+              }}
+              inputMode="none"
               pattern="[0-9]*"
-              autoComplete="one-time-code"
+              autoComplete="off"
               aria-label="Kod PIN"
               disabled={lockLeft > 0}
               className="absolute opacity-0 pointer-events-none h-0 w-0"
