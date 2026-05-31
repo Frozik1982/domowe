@@ -344,12 +344,26 @@ export function useExpenseStore() {
   }
 
 
+
+  function replaceData(nextData: StoreData) {
+    setData({
+      ...nextData,
+      year: clampToCurrentFiscalYear(nextData.year),
+      hiddenMonths: normalizeMonthList(nextData.hiddenMonths),
+      visiblePastMonths: normalizeMonthList(nextData.visiblePastMonths),
+      autoHidePastMonths: nextData.autoHidePastMonths ?? true,
+      history: Array.isArray(nextData.history) ? nextData.history.slice(0, 50) : [],
+    });
+    setUndoStack([]);
+  }
+
   const activeData: StoreData = { ...data, categories: data.categories.filter(c => !c.deletedAt) };
   const trashCategories = data.categories.filter(c => !!c.deletedAt);
 
   return {
     data: activeData,
     rawData: data,
+    replaceData,
     trashCategories,
     getStatus,
     cycleStatus,

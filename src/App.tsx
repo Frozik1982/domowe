@@ -15,9 +15,10 @@ import ManageCategoriesDialog from '@/components/ManageCategoriesDialog';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut, Undo2, Eye, EyeOff, CalendarPlus, History } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Printer, Settings, BarChart2, List, Lock, Unlock, HelpCircle, LogOut, Undo2, Eye, EyeOff, CalendarPlus, History, Cloud } from 'lucide-react';
 import InstallPrompt from '@/components/InstallPrompt';
 import PdfExportDialog from '@/components/PdfExportDialog';
+import CloudSyncDialog from '@/components/CloudSyncDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { type FilterType } from '@/types';
 
@@ -96,6 +97,7 @@ function AppContent() {
   const [pdfOpen, setPdfOpen]               = useState(false);
   const [hideAmounts, setHideAmounts]       = useState(() => localStorage.getItem('expense-hide-amounts') === 'true');
   const [historyOpen, setHistoryOpen]       = useState(false);
+  const [cloudSyncOpen, setCloudSyncOpen]   = useState(false);
 
   useEffect(() => {
     localStorage.setItem('expense-hide-amounts', String(hideAmounts));
@@ -247,6 +249,10 @@ Kategorie, kwoty, terminy i grupy zostaną skopiowane, a płatności wyczyszczon
                 }
               </Button>
 
+              <Button variant="outline" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setCloudSyncOpen(true)} title="Synchronizacja telefonu i komputera">
+                <Cloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sync</span>
+              </Button>
+
               <Button variant="outline" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => setPdfOpen(true)}>
                 <Printer className="h-3.5 w-3.5" /><span className="hidden sm:inline">PDF</span>
               </Button>
@@ -350,6 +356,7 @@ Kategorie, kwoty, terminy i grupy zostaną skopiowane, a płatności wyczyszczon
         onExport={handleExport} onImport={handleImport}
         onExportCsv={handleExportCsv} onExportExcel={handleExportExcel} />
       <PdfExportDialog open={pdfOpen} onOpenChange={setPdfOpen} data={data} />
+      <CloudSyncDialog open={cloudSyncOpen} onOpenChange={setCloudSyncOpen} data={store.rawData} onReplaceData={store.replaceData} />
 
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
