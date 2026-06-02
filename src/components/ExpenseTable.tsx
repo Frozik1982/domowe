@@ -435,6 +435,23 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
               }}
               onKeyDown={(e) => {
                 e.stopPropagation();
+
+                // Space on a focused input should insert a normal space, never
+                // trigger page scrolling, table shortcuts, or focused buttons.
+                if (e.key === ' ' || e.key === 'Spacebar') {
+                  e.preventDefault();
+                  const input = e.currentTarget;
+                  const start = input.selectionStart ?? renaming.value.length;
+                  const end = input.selectionEnd ?? renaming.value.length;
+                  const nextValue = renaming.value.slice(0, start) + ' ' + renaming.value.slice(end);
+                  setRenaming(r => r ? { ...r, value: nextValue } : r);
+                  window.requestAnimationFrame(() => {
+                    const nextPos = start + 1;
+                    renameInputRef.current?.setSelectionRange(nextPos, nextPos);
+                  });
+                  return;
+                }
+
                 if (e.key === 'Backspace' && e.currentTarget.value.length === 0) {
                   e.preventDefault();
                   return;
