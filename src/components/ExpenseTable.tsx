@@ -91,6 +91,7 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
   const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; original: string; value: string; rect: DOMRect } | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const renamingRef = useRef<typeof renaming>(null);
 
   const cats = useMemo(() => [...data.categories].sort((a, b) => `${a.group || 'Bez grupy'}:${a.name}`.localeCompare(`${b.group || 'Bez grupy'}:${b.name}`, 'pl')), [data.categories]);
   const currentMonth = useMemo(() => getCurrentMonthIndex(data.year), [data.year]);
@@ -101,52 +102,58 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
 
 
   useEffect(() => {
+    renamingRef.current = renaming;
+  }, [renaming]);
+
+  useEffect(() => {
     if (!renaming) return;
+
     const t = window.setTimeout(() => {
       const input = renameInputRef.current;
       if (!input) return;
       input.focus({ preventScroll: true });
-      // On desktop selecting the whole name is convenient. On Android it can
-      // interfere with the virtual keyboard/composition and duplicate input,
-      // so select only for non-touch pointers.
       const isTouch = window.matchMedia?.('(pointer: coarse)').matches;
       if (!isTouch) input.select();
+      else {
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+      }
     }, 40);
 
-    // Extra safety: while the rename box is open, Backspace must never navigate
-    // the page. It should only edit the text in the input, and if the input is
-    // already empty it should simply do nothing. This fixes blank-page issues
-    // on browsers that handle Backspace outside the focused input.
-    const guardBackspace = (event: KeyboardEvent) => {
-      if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+    // Native guard: when the floating editor is open, page/table shortcuts must
+    // not receive typing keys. If the input is focused, the browser edits text
+    // normally. If focus escaped to the page, we focus the input and block the
+    // key so Backspace/Space/Arrows never navigate or blank the app.
+    const guardRenameKeys = (event: KeyboardEvent) => {
+      if (!renamingRef.current) return;
       const input = renameInputRef.current;
       if (!input) return;
 
-      if (document.activeElement !== input) {
-        input.focus({ preventScroll: true });
-        event.preventDefault();
-        event.stopPropagation();
-        return;
+      const target = event.target as Node | null;
+      const isInsideInput = target === input;
+      const isFocused = document.activeElement === input;
+
+      if (isInsideInput || isFocused) {
+        return; // let the input handle text editing naturally
       }
 
-      const start = input.selectionStart ?? 0;
-      const end = input.selectionEnd ?? 0;
-      const value = input.value ?? '';
-      const deletingNothing =
-        value.length === 0 ||
-        (event.key === 'Backspace' && start === 0 && end === 0) ||
-        (event.key === 'Delete' && start === value.length && end === value.length);
-
-      if (deletingNothing) {
+      const keysToGuard = new Set([
+        'Backspace', 'Delete', ' ', 'Spacebar',
+        'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+        'Home', 'End', 'PageUp', 'PageDown',
+      ]);
+      const isPrintable = event.key.length === 1;
+      if (keysToGuard.has(event.key) || isPrintable) {
+        input.focus({ preventScroll: true });
         event.preventDefault();
         event.stopPropagation();
       }
     };
 
-    window.addEventListener('keydown', guardBackspace, true);
+    window.addEventListener('keydown', guardRenameKeys, true);
     return () => {
       window.clearTimeout(t);
-      window.removeEventListener('keydown', guardBackspace, true);
+      window.removeEventListener('keydown', guardRenameKeys, true);
     };
   }, [renaming?.id]);
 
@@ -176,7 +183,8 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
 
   function saveRenameCategory() {
     if (!renaming || !updateCategory) return;
-    const nextName = renaming.value.trim().replace(/\s+/g, ' ');
+    const rawValue = renameInputRef.current?.value ?? renaming.value;
+    const nextName = rawValue.trim().replace(/\s+/g, ' ');
     // Safety: never save an empty name. If the field was cleared by accident,
     // cancel the edit and keep the previous category name.
     if (!nextName) {
@@ -451,9 +459,9 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-          onKeyUp={(e) => e.stopPropagation()}
-          onBeforeInput={(e) => e.stopPropagation()}
+          onKeyDownCapture={(e) => e.stopPropagation()}
+          onKeyUpCapture={(e) => e.stopPropagation()}
+          onBeforeInputCapture={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-1.5">
             <input
@@ -465,30 +473,12 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
               autoCorrect="off"
               autoCapitalize="sentences"
               spellCheck={false}
-              value={renaming.value}
+              defaultValue={renaming.value}
               onPointerDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
-              onKeyDownCapture={(e) => {
-                // Important: stop table/global shortcuts before they see typing
-                // in this floating input. Do not prevent default here, so normal
-                // editing still works: space inserts a space, arrows move cursor,
-                // Backspace/Delete remove characters.
-                e.stopPropagation();
-              }}
-              onKeyUpCapture={(e) => e.stopPropagation()}
-              onBeforeInputCapture={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                // Use only the browser-provided value. This avoids appending
-                // typed characters manually, which can duplicate input on Android.
-                setRenaming(r => r ? { ...r, value: e.currentTarget.value } : r);
-              }}
               onKeyDown={(e) => {
                 e.stopPropagation();
 
-                // Do not handle normal editing keys manually. The browser must
-                // keep full control of text editing, otherwise Android/Chrome can
-                // duplicate characters or the app can lose focus. Only Enter/Esc
-                // are app actions.
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   saveRenameCategory();
@@ -499,12 +489,9 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                   cancelRenameCategory();
                   return;
                 }
-
-                // If the field is already empty, prevent Backspace from being
-                // interpreted as browser navigation. Otherwise let it edit text.
-                if ((e.key === 'Backspace' || e.key === 'Delete') && e.currentTarget.value.length === 0) {
-                  e.preventDefault();
-                }
+                // Do not prevent default for Space, Backspace, Delete or arrows.
+                // The input is uncontrolled, so the browser edits text normally
+                // without re-rendering the whole table on every key press.
               }}
               onKeyUp={(e) => e.stopPropagation()}
               className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-left text-base font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25 md:text-sm"
