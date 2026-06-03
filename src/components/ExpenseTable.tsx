@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type Category, type CellStatus, type AssignedTo, type CellData } from '@/hooks/useExpenseStore';
+import { type Category, type CellStatus, type AssignedTo, type CellData, type CellDocument } from '@/hooks/useExpenseStore';
 import { type FilterType } from '@/types';
-import { Check, Copy, Eye, EyeOff, Lock, Pencil, X } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, Lock, Paperclip, Pencil, X } from 'lucide-react';
 import CellEditPopover from '@/components/CellEditPopover';
 
 export interface TableStore {
@@ -16,6 +16,8 @@ export interface TableStore {
   setAutoHidePastMonths: (enabled: boolean) => void;
   updateCategory?: (id: string, updates: Partial<Omit<Category, 'id'>>) => void;
   setNote?: (categoryId: string, monthIndex: number, note: string) => void;
+  getDocuments?: (categoryId: string, monthIndex: number) => CellDocument[];
+  setDocuments?: (categoryId: string, monthIndex: number, documents: CellDocument[]) => void;
 }
 
 interface Props {
@@ -84,7 +86,7 @@ const MONTH_COL_W = 130;
 const CAT_COL_MIN = 80;
 
 export default function ExpenseTable({ store, filter, editMode, hideAmounts = false }: Props) {
-  const { data, getStatus, setStatus, copyPreviousMonth, toggleMonthHidden, hidePastMonths, showAllMonths, setAutoHidePastMonths, updateCategory } = store;
+  const { data, getStatus, setStatus, copyPreviousMonth, toggleMonthHidden, hidePastMonths, showAllMonths, setAutoHidePastMonths, updateCategory, getDocuments, setDocuments } = store;
   const [hover, setHover] = useState<{ row: number; col: string } | null>(null);
   const [menu, setMenu] = useState<{ cat: Category; mi: number; status: CellStatus; rect: DOMRect } | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; original: string; value: string; rect: DOMRect } | null>(null);
@@ -110,7 +112,42 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
       const isTouch = window.matchMedia?.('(pointer: coarse)').matches;
       if (!isTouch) input.select();
     }, 40);
-    return () => window.clearTimeout(t);
+
+    // Extra safety: while the rename box is open, Backspace must never navigate
+    // the page. It should only edit the text in the input, and if the input is
+    // already empty it should simply do nothing. This fixes blank-page issues
+    // on browsers that handle Backspace outside the focused input.
+    const guardBackspace = (event: KeyboardEvent) => {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+      const input = renameInputRef.current;
+      if (!input) return;
+
+      if (document.activeElement !== input) {
+        input.focus({ preventScroll: true });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? 0;
+      const value = input.value ?? '';
+      const deletingNothing =
+        value.length === 0 ||
+        (event.key === 'Backspace' && start === 0 && end === 0) ||
+        (event.key === 'Delete' && start === value.length && end === value.length);
+
+      if (deletingNothing) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    window.addEventListener('keydown', guardBackspace, true);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('keydown', guardBackspace, true);
+    };
   }, [renaming?.id]);
 
   function handleCellClick(e: React.MouseEvent<HTMLTableCellElement>, cat: Category, mi: number, status: CellStatus) {
@@ -365,6 +402,7 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                           {CELL_LABEL[status]}
                           {dueClass && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full due-dot" />}
                           {showLock && <Lock className="h-2 w-2 opacity-20 shrink-0" />}
+                          {(() => { const docs = getDocuments?.(cat.id, mi) ?? data.cells.find(c => c.categoryId === cat.id && c.monthIndex === mi)?.documents ?? []; return docs.length ? <Paperclip className="h-2.5 w-2.5 text-primary/80 shrink-0" /> : null; })()}
                           {(() => { const n = data.cells.find(c => c.categoryId === cat.id && c.monthIndex === mi)?.note; return n ? <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" title={n} /> : null; })()}
                         </span>
                       </td>
@@ -413,7 +451,9 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
+          onKeyDownCapture={(e) => e.stopPropagation()}
+          onKeyUpCapture={(e) => e.stopPropagation()}
+          onBeforeInputCapture={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-1.5">
             <input
@@ -436,23 +476,10 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
               onKeyDown={(e) => {
                 e.stopPropagation();
 
-                // Space on a focused input should insert a normal space, never
-                // trigger page scrolling, table shortcuts, or focused buttons.
-                if (e.key === ' ' || e.key === 'Spacebar') {
-                  e.preventDefault();
-                  const input = e.currentTarget;
-                  const start = input.selectionStart ?? renaming.value.length;
-                  const end = input.selectionEnd ?? renaming.value.length;
-                  const nextValue = renaming.value.slice(0, start) + ' ' + renaming.value.slice(end);
-                  setRenaming(r => r ? { ...r, value: nextValue } : r);
-                  window.requestAnimationFrame(() => {
-                    const nextPos = start + 1;
-                    renameInputRef.current?.setSelectionRange(nextPos, nextPos);
-                  });
-                  return;
-                }
-
-                if (e.key === 'Backspace' && e.currentTarget.value.length === 0) {
+                // Let the input handle normal text editing itself: letters,
+                // spaces, Backspace and Delete. We only block browser/page
+                // shortcuts when deletion would do nothing.
+                if ((e.key === 'Backspace' || e.key === 'Delete') && e.currentTarget.value.length === 0) {
                   e.preventDefault();
                   return;
                 }
@@ -465,6 +492,7 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
                   cancelRenameCategory();
                 }
               }}
+              onKeyUp={(e) => e.stopPropagation()}
               className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-left text-base font-semibold text-foreground caret-primary outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/25 md:text-sm"
               placeholder="Nazwa kategorii"
               aria-label="Nowa nazwa kategorii"
@@ -499,6 +527,11 @@ export default function ExpenseTable({ store, filter, editMode, hideAmounts = fa
           anchorRect={menu.rect}
           onClose={() => setMenu(null)}
           onSet={(status) => setStatus(menu.cat.id, menu.mi, status)}
+          categoryId={menu.cat.id}
+          monthIndex={menu.mi}
+          year={data.year}
+          documents={getDocuments?.(menu.cat.id, menu.mi) ?? data.cells.find(c => c.categoryId === menu.cat.id && c.monthIndex === menu.mi)?.documents ?? []}
+          onDocumentsChange={(documents) => setDocuments?.(menu.cat.id, menu.mi, documents)}
         />
       )}
     </div>

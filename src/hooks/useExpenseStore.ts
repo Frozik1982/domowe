@@ -16,11 +16,27 @@ export interface Category {
   deletedAt?: string;        // ISO timestamp when moved to trash
 }
 
+export interface CellDocument {
+  id: string;
+  path: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+  title?: string;
+  transferTitle?: string;
+  invoiceNumber?: string;
+  amount?: number;
+  documentDate?: string;
+  note?: string;
+  createdAt: string;
+}
+
 export interface CellData {
   categoryId: string;
   monthIndex: number;
   status: CellStatus;
   note?: string; // optional payment note
+  documents?: CellDocument[];
 }
 
 export interface StoreData {
@@ -262,6 +278,29 @@ export function useExpenseStore() {
     }, 'Zmieniono notatkę płatności');
   }
 
+  function getDocuments(categoryId: string, monthIndex: number): CellDocument[] {
+    return data.cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex)?.documents ?? [];
+  }
+
+  function setDocuments(categoryId: string, monthIndex: number, documents: CellDocument[]) {
+    commitData(prev => {
+      const existing = prev.cells.find(c => c.categoryId === categoryId && c.monthIndex === monthIndex);
+      const filtered = prev.cells.filter(c => !(c.categoryId === categoryId && c.monthIndex === monthIndex));
+      const cleaned = documents.length > 0 ? documents : undefined;
+      if (existing) {
+        const nextCell = { ...existing, documents: cleaned };
+        if (nextCell.status === 'unpaid' && !nextCell.note && !nextCell.documents?.length) {
+          return { ...prev, cells: filtered };
+        }
+        return { ...prev, cells: [...filtered, nextCell] };
+      }
+      if (cleaned?.length) {
+        return { ...prev, cells: [...filtered, { categoryId, monthIndex, status: 'unpaid', documents: cleaned }] };
+      }
+      return prev;
+    }, 'Zmieniono dokumenty płatności');
+  }
+
   function restoreCategory(id: string) {
     commitData(prev => ({
       ...prev,
@@ -380,6 +419,8 @@ export function useExpenseStore() {
     clearAllCells,
     getNote,
     setNote,
+    getDocuments,
+    setDocuments,
     toggleMonthHidden,
     hidePastMonths,
     showAllMonths,
